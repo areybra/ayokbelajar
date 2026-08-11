@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Library Materi — AyokBelajar{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Library Materi</h1>
+      <p class="mt-1 text-sm text-slate-500">{{ total_count }} materi belajar yang sudah dibuat.</p>
+    </div>
+    <a href="{% url 'core:dashboard' %}"
+       class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">
+      + Study Kit Baru
+    </a>
+  </div>
+
+  {% if documents %}
+    <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {% for doc in documents %}
+        <article class="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors duration-200 hover:border-slate-300">
+          <div class="flex items-start justify-between">
+            <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500" aria-hidden="true">
+              {% if doc.source_type == 'youtube' %}
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+              {% elif doc.source_type == 'pdf' %}
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+              {% else %}
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" /></svg>
+              {% endif %}
+            </span>
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">{{ doc.get_source_type_display }}</span>
+          </div>
+          <a href="{% url 'core:workspace' doc.pk %}" class="mt-3 block">
+            <h3 class="font-semibold text-slate-900 group-hover:text-primary">{{ doc.title }}</h3>
+          </a>
+          <p class="mt-1 text-xs text-slate-400">{{ doc.created_at|date:"d M Y, H:i" }}</p>
+          <div class="mt-4 flex items-center gap-3 border-t border-slate-100 pt-3">
+            <a href="{% url 'core:workspace' doc.pk %}" class="cursor-pointer text-sm font-medium text-primary transition-colors duration-200 hover:text-primary-hover">Buka</a>
+            <form method="post" action="{% url 'core:delete' doc.pk %}" class="ml-auto"
+                  onsubmit="return confirm('Hapus materi ini?');">
+              {% csrf_token %}
+              <button type="submit" class="cursor-pointer text-sm font-medium text-rose-500 transition-colors duration-200 hover:text-rose-600">Hapus</button>
+            </form>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+
+    {% if page_obj.has_other_pages %}
+      <nav class="flex items-center justify-center gap-2 pt-4" aria-label="Paginasi">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}"
+             class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition-colors duration-200 hover:bg-slate-100">Sebelumnya</a>
+        {% endif %}
+        <span class="px-3 py-2 text-sm text-slate-500">
+          Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}
+        </span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}"
+             class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition-colors duration-200 hover:bg-slate-100">Berikutnya</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <div class="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
+      <p class="text-slate-500">Belum ada materi. Buat study kit pertamamu dari dashboard!</p>
+      <a href="{% url 'core:dashboard' %}" class="mt-4 inline-block cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">Buat Study Kit</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

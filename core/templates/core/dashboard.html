@@ -1,0 +1,208 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard — AyokBelajar{% endblock %}
+
+{% block content %}
+<div x-data="dashboardPage({{ preferences_set|yesno:'true,false' }})" class="space-y-10">
+  <div x-show="prefsOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="prefs-modal-title">
+    <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+      <div class="flex items-start gap-3">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-primary" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" /></svg>
+        </span>
+        <div>
+          <h2 id="prefs-modal-title" class="text-lg font-bold text-slate-900">Lengkapi preferensi belajarmu</h2>
+          <p class="mt-1 text-sm text-slate-500">Sekali saja sebelum masuk dashboard. Bisa diubah kapan saja di Settings.</p>
+        </div>
+      </div>
+
+      <form method="post" action="{% url 'core:preferences' %}" class="mt-5 space-y-4"
+            x-data="profilePrefs('{{ prefs_form.education_level.value|default:'umum' }}', '{{ prefs_form.grade.value|default:'' }}')">
+        {% csrf_token %}
+        {% if prefs_form.non_field_errors %}
+          <div class="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-600">
+            {% for error in prefs_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+          </div>
+        {% endif %}
+
+        {% include 'core/_profile_preferences_fields.html' with form=prefs_form %}
+
+        <button type="submit"
+                class="w-full cursor-pointer rounded-lg bg-primary py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">
+          Simpan & Masuk Dashboard
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div id="generating-overlay" class="fixed inset-0 z-50 hidden flex-col items-center justify-center gap-5 bg-slate-900/70 backdrop-blur-sm" role="status" aria-live="polite">
+    <div class="h-12 w-12 animate-spin rounded-full border-4 border-white/25 border-t-white" aria-hidden="true"></div>
+    <div class="text-center">
+      <p class="text-base font-semibold text-white">Memproses materi kamu...</p>
+      <p class="mt-1 text-sm text-white/70">Menunggu AI menghasilkan study kit. Ini bisa memakan waktu beberapa detik, jangan tutup halaman ini.</p>
+    </div>
+  </div>
+
+  <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">Buat Study Kit Baru</h1>
+        <p class="mt-1 text-sm text-slate-500">Tempel teks, bagikan URL YouTube, atau unggah PDF.</p>
+        <p class="mt-2 inline-flex flex-wrap gap-x-4 gap-y-1 rounded-lg bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
+          <span>Jenjang: <strong>{{ profile.get_education_level_display }}</strong></span>
+          {% if profile.grade %}<span>Kelas: <strong>{{ profile.grade }}</strong></span>{% endif %}
+          <span>Gaya belajar: <strong>{{ profile.get_learning_style_display }}</strong></span>
+        </p>
+      </div>
+      <div class="flex gap-6 text-center">
+        <div>
+          <p class="text-xl font-bold text-slate-900">{{ documents|length }}</p>
+          <p class="text-xs text-slate-500">Materi</p>
+        </div>
+        <div>
+          <p class="text-xl font-bold text-accent">3</p>
+          <p class="text-xs text-slate-500">Sisa Kredit</p>
+        </div>
+        <div>
+          <p class="text-xl font-bold text-slate-900">🔥 5</p>
+          <p class="text-xs text-slate-500">Hari Streak</p>
+        </div>
+      </div>
+    </div>
+
+    <form method="post" action="{% url 'core:process' %}" enctype="multipart/form-data" id="study-kit-form" class="mt-8">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-600">
+          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="flex gap-2 border-b border-slate-200 pb-3" role="tablist" aria-label="Sumber materi">
+        <button type="button" role="tab" @click="source='text'"
+                class="cursor-pointer rounded-md px-4 py-2 text-sm font-medium transition-colors duration-200"
+                :class="source==='text' ? 'bg-indigo-50 text-primary' : 'text-slate-500 hover:text-slate-800'">📄 Raw Text</button>
+        <button type="button" role="tab" @click="source='youtube'"
+                class="cursor-pointer rounded-md px-4 py-2 text-sm font-medium transition-colors duration-200"
+                :class="source==='youtube' ? 'bg-indigo-50 text-primary' : 'text-slate-500 hover:text-slate-800'">🔗 YouTube URL</button>
+        <button type="button" role="tab" @click="source='pdf'"
+                class="cursor-pointer rounded-md px-4 py-2 text-sm font-medium transition-colors duration-200"
+                :class="source==='pdf' ? 'bg-indigo-50 text-primary' : 'text-slate-500 hover:text-slate-800'">📤 Upload PDF</button>
+      </div>
+
+      <div class="mt-6">
+        <div x-show="source==='text'" x-cloak>
+          <label for="id_raw_text" class="mb-1.5 block text-sm font-medium text-slate-700">Teks Materi</label>
+          <textarea name="raw_text" id="id_raw_text" rows="6"
+                    placeholder="Tempel teks materi di sini (hingga ±50.000 kata)..."
+                    class="w-full rounded-lg border border-slate-300 p-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-indigo-500">{{ form.raw_text.value|default_if_none:'' }}</textarea>
+          {% for error in form.raw_text.errors %}<p class="mt-1 text-sm text-rose-500">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div x-show="source==='youtube'" x-cloak>
+          <label for="id_youtube_url" class="mb-1.5 block text-sm font-medium text-slate-700">URL YouTube</label>
+          <input type="url" name="youtube_url" id="id_youtube_url" value="{{ form.youtube_url.value|default_if_none:'' }}"
+                 placeholder="https://www.youtube.com/watch?v=..."
+                 class="w-full rounded-lg border border-slate-300 p-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          {% for error in form.youtube_url.errors %}<p class="mt-1 text-sm text-rose-500">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div x-show="source==='pdf'" x-cloak>
+          <label for="id_pdf_file" class="mb-1.5 block text-sm font-medium text-slate-700">File PDF</label>
+          <input type="file" name="pdf_file" id="id_pdf_file" accept="application/pdf"
+                 class="w-full cursor-pointer rounded-lg border border-slate-300 p-3 file:mr-3 file:rounded-md file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-indigo-100">
+          {% for error in form.pdf_file.errors %}<p class="mt-1 text-sm text-rose-500">{{ error }}</p>{% endfor %}
+          <p class="mt-1 text-xs text-slate-400">Maksimal 20 MB.</p>
+        </div>
+
+        <input type="hidden" name="source_type" :value="source">
+
+        <div class="mt-6 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label for="id_num_flashcards" class="mb-1.5 block text-sm font-medium text-slate-700">Jumlah Flashcard</label>
+            <input type="number" name="num_flashcards" id="id_num_flashcards" min="1" max="30" value="{{ form.num_flashcards.value|default:'10' }}"
+                   class="w-full rounded-lg border border-slate-300 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <div>
+            <label for="id_num_quiz" class="mb-1.5 block text-sm font-medium text-slate-700">Jumlah Soal Quiz</label>
+            <input type="number" name="num_quiz" id="id_num_quiz" min="3" max="20" value="{{ form.num_quiz.value|default:'5' }}"
+                   class="w-full rounded-lg border border-slate-300 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+        </div>
+      </div>
+
+      <button type="submit"
+              class="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">
+        <span aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>
+        </span>
+        Generate Study Kit
+      </button>
+    </form>
+  </section>
+  <section>
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-bold text-slate-900">Library Materi</h2>
+    </div>
+
+    {% if documents %}
+      <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {% for doc in documents %}
+          <article class="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors duration-200 hover:border-slate-300">
+            <div class="flex items-start justify-between">
+              <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500" aria-hidden="true">
+                {% if doc.source_type == 'youtube' %}
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+                {% elif doc.source_type == 'pdf' %}
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                {% else %}
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" /></svg>
+                {% endif %}
+              </span>
+              <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">{{ doc.get_source_type_display }}</span>
+            </div>
+            <a href="{% url 'core:workspace' doc.pk %}" class="mt-3 block">
+              <h3 class="font-semibold text-slate-900 group-hover:text-primary">{{ doc.title }}</h3>
+            </a>
+            <p class="mt-1 text-xs text-slate-400">{{ doc.created_at|date:"d M Y, H:i" }}</p>
+            <div class="mt-4 flex items-center gap-3 border-t border-slate-100 pt-3">
+              <a href="{% url 'core:workspace' doc.pk %}" class="cursor-pointer text-sm font-medium text-primary transition-colors duration-200 hover:text-primary-hover">Buka</a>
+              <form method="post" action="{% url 'core:delete' doc.pk %}" class="ml-auto"
+                    onsubmit="return confirm('Hapus materi ini?');">
+                {% csrf_token %}
+                <button type="submit" class="cursor-pointer text-sm font-medium text-rose-500 transition-colors duration-200 hover:text-rose-600">Hapus</button>
+              </form>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="mt-6 rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
+        <p class="text-slate-500">Belum ada materi. Buat study kit pertamamu di atas!</p>
+      </div>
+    {% endif %}
+  </section>
+</div>
+
+<script>
+  function dashboardPage(preferencesSet) {
+    return {
+      source: 'text',
+      prefsOpen: !preferencesSet,
+    };
+  }
+  document.addEventListener('submit', function (e) {
+    if (e.target && e.target.id === 'study-kit-form') {
+      var overlay = document.getElementById('generating-overlay');
+      var button = e.target.querySelector('button[type="submit"]');
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+      if (button) {
+        button.disabled = true;
+        button.classList.add('cursor-not-allowed', 'opacity-60');
+      }
+    }
+  });
+</script>
+{% endblock %}

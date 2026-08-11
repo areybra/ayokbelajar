@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}AyokBelajar — Ubah Materi Jadi Kit Belajar Interaktif{% endblock %}
+
+{% block body %}
+<nav class="no-print sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+  <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+    <a href="{% url 'core:landing' %}" class="flex items-center gap-2 text-lg font-bold text-slate-900">
+      <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" />
+        </svg>
+      </span>
+      AyokBelajar
+    </a>
+    <div class="flex items-center gap-2">
+      {% if user.is_authenticated %}
+        <a href="{% url 'core:dashboard' %}" class="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">Dashboard</a>
+      {% else %}
+        <a href="{% url 'login' %}" class="cursor-pointer rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition-colors duration-200 hover:text-slate-800">Masuk</a>
+        <a href="{% url 'core:register' %}" class="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">Mulai Gratis</a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<section class="relative overflow-hidden bg-slate-50">
+  <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:py-28">
+    <div class="grid items-center gap-12 lg:grid-cols-2">
+      <div>
+        <p class="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+          <span class="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden="true"></span>
+          Didukung Gemini 1.5 Flash
+        </p>
+        <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+          Ubah Teks, PDF, &amp; YouTube Jadi<br class="hidden sm:block">
+          <span class="text-primary">Kit Belajar Interaktif</span>
+        </h1>
+        <p class="mt-5 max-w-xl text-lg text-slate-500">
+          Tempel materi, unggah PDF, atau bagikan link YouTube — dalam hitungan detik dapatkan rangkuman, peta belajar, flashcard, dan quiz dalam satu kali proses.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          {% if user.is_authenticated %}
+            <a href="{% url 'core:dashboard' %}" class="cursor-pointer rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">
+              Buka Dashboard
+            </a>
+          {% else %}
+            <a href="{% url 'core:register' %}" class="cursor-pointer rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">
+              Mulai Gratis
+            </a>
+          {% endif %}
+          <a href="#demo" class="cursor-pointer rounded-lg border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition-colors duration-200 hover:border-slate-400">
+            Lihat Demo
+          </a>
+        </div>
+      </div>
+      <div class="relative">
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div class="flex gap-1.5" aria-hidden="true">
+              <span class="h-3 w-3 rounded-full bg-rose-400"></span>
+              <span class="h-3 w-3 rounded-full bg-amber-400"></span>
+              <span class="h-3 w-3 rounded-full bg-emerald-400"></span>
+            </div>
+            <span class="text-xs font-medium text-slate-400">workspace / ringkasan</span>
+          </div>
+          <div class="mt-4 space-y-3">
+            <div class="flex gap-2">
+              <span class="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">Rangkuman</span>
+              <span class="cursor-pointer rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-primary">Peta Belajar</span>
+              <span class="cursor-pointer rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">Flashcard</span>
+              <span class="cursor-pointer rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">Quiz</span>
+            </div>
+            <div class="space-y-2 rounded-lg bg-slate-50 p-4">
+              <div class="h-3 w-3/4 rounded bg-slate-300"></div>
+              <div class="h-3 w-full rounded bg-slate-200"></div>
+              <div class="h-3 w-5/6 rounded bg-slate-200"></div>
+              <div class="mt-3 flex items-center gap-2">
+                <span class="h-6 w-6 rounded-full bg-emerald-100 text-emerald-600" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75" /></svg>
+                </span>
+                <div class="flex-1 space-y-1.5">
+                  <div class="h-2.5 w-full rounded bg-slate-200"></div>
+                  <div class="h-2.5 w-2/3 rounded bg-slate-200"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="absolute -bottom-5 -left-5 hidden rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm lg:block">
+          <div class="flex items-center gap-3">
+            <span class="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-600" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+            </span>
+            <div>
+              <p class="text-sm font-semibold text-slate-900">Skor Quiz: 8/8</p>
+              <p class="text-xs text-slate-500">Lulus sempurna!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="border-t border-slate-200 bg-white">
+  <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+    <h2 class="text-center text-3xl font-bold text-slate-900">Kenapa AyokBelajar?</h2>
+    <p class="mx-auto mt-3 max-w-2xl text-center text-slate-500">
+      Satu alur kerja sederhana untuk mengubah sumber belajar apapun menjadi alat aktif mengingat.
+    </p>
+    <div class="mt-12 grid gap-6 md:grid-cols-3">
+      <div class="rounded-xl border border-slate-200 p-6 transition-colors duration-200 hover:border-slate-300">
+        <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-primary" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" /></svg>
+        </span>
+        <h3 class="mt-4 text-lg font-semibold text-slate-900">Fast AI Extraction</h3>
+        <p class="mt-2 text-sm text-slate-500">Ekstrak transkrip YouTube, teks PDF, atau input mentah secara instan tanpa menonton video.</p>
+      </div>
+      <div class="rounded-xl border border-slate-200 p-6 transition-colors duration-200 hover:border-slate-300">
+        <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>
+        </span>
+        <h3 class="mt-4 text-lg font-semibold text-slate-900">Structured Knowledge</h3>
+        <p class="mt-2 text-sm text-slate-500">Rangkuman mendalam dan peta jalan vertikal yang dihasilkan dalam satu panggilan AI.</p>
+      </div>
+      <div class="rounded-xl border border-slate-200 p-6 transition-colors duration-200 hover:border-slate-300">
+        <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-50 text-rose-500" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+        </span>
+        <h3 class="mt-4 text-lg font-semibold text-slate-900">Active Recall Tools</h3>
+        <p class="mt-2 text-sm text-slate-500">Flashcard putar 3D dan quiz dengan skor otomatis untuk memperkuat ingatan aktif.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="demo" class="border-t border-slate-200 bg-slate-50">
+  <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+    <h2 class="text-center text-3xl font-bold text-slate-900">Coba langsung</h2>
+    <p class="mx-auto mt-3 max-w-2xl text-center text-slate-500">Putar kartu dengan klik atau tekan spasi.</p>
+    <div class="mx-auto mt-10 max-w-lg" x-data="landingFlashcard()">
+      <div class="h-64 cursor-pointer [perspective:1000px]" @click="flip = !flip">
+        <div class="relative h-full w-full transition-transform duration-500 [transform-style:preserve-3d]" :class="flip && '[transform:rotateY(180deg)]'">
+          <div class="absolute inset-0 flex items-center justify-center rounded-xl border border-slate-200 bg-white p-8 shadow-sm [backface-visibility:hidden]">
+            <p class="text-center text-lg font-semibold text-slate-900">{{ demo_question }}</p>
+          </div>
+          <div class="absolute inset-0 flex items-center justify-center rounded-xl bg-primary p-8 text-white shadow-sm [backface-visibility:hidden] [transform:rotateY(180deg)]">
+            <p class="text-center text-lg font-semibold">{{ demo_answer }}</p>
+          </div>
+        </div>
+      </div>
+      <p class="mt-4 text-center text-sm text-slate-500">Klik kartu untuk membalik. <span class="font-medium text-slate-700">{{ demo_question }}</span></p>
+    </div>
+  </div>
+</section>
+
+<section class="border-t border-slate-200 bg-white">
+  <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+    <h2 class="text-center text-3xl font-bold text-slate-900">Pilihan yang Tepat</h2>
+    <div class="mt-12 grid gap-6 md:grid-cols-3">
+      <div class="rounded-xl border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-900">Free</h3>
+        <p class="mt-1 text-sm text-slate-500">Untuk mencoba</p>
+        <p class="mt-4 text-3xl font-extrabold text-slate-900">Rp 0</p>
+        <ul class="mt-4 space-y-2 text-sm text-slate-600">
+          <li>3 dokumen / bulan</li>
+          <li>Rangkuman + Roadmap</li>
+          <li>Flashcard hingga 10</li>
+        </ul>
+        <a href="{% if user.is_authenticated %}{% url 'core:dashboard' %}{% else %}{% url 'core:register' %}{% endif %}" class="mt-6 block cursor-pointer rounded-lg border border-slate-300 py-2 text-center text-sm font-semibold text-slate-700 transition-colors duration-200 hover:border-slate-400">{% if user.is_authenticated %}Buka Dashboard{% else %}Mulai Gratis{% endif %}</a>
+      </div>
+      <div class="relative rounded-xl border-2 border-primary p-6 shadow-sm">
+        <span class="absolute -top-3 left-6 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-white">Paling Populer</span>
+        <h3 class="text-lg font-semibold text-slate-900">Pro</h3>
+        <p class="mt-1 text-sm text-slate-500">Untuk pelajar serius</p>
+        <p class="mt-4 text-3xl font-extrabold text-slate-900">Rp 49k<span class="text-base font-medium text-slate-400">/bulan</span></p>
+        <ul class="mt-4 space-y-2 text-sm text-slate-600">
+          <li>Dokumen tanpa batas</li>
+          <li>Semua gaya belajar</li>
+          <li>Chat dengan dokumen</li>
+          <li>Ekspor Markdown &amp; Anki</li>
+        </ul>
+        <a href="{% if user.is_authenticated %}{% url 'core:dashboard' %}{% else %}{% url 'core:register' %}{% endif %}" class="mt-6 block cursor-pointer rounded-lg bg-primary py-2 text-center text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">{% if user.is_authenticated %}Buka Dashboard{% else %}Pilih Pro{% endif %}</a>
+      </div>
+      <div class="rounded-xl border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-900">Teams</h3>
+        <p class="mt-1 text-sm text-slate-500">Untuk kelas &amp; grup</p>
+        <p class="mt-4 text-3xl font-extrabold text-slate-900">Hubungi kami</p>
+        <ul class="mt-4 space-y-2 text-sm text-slate-600">
+          <li>Manajemen anggota</li>
+          <li>Analitik belajar</li>
+          <li>Prioritas dukungan</li>
+        </ul>
+        <a href="{% url 'login' %}" class="mt-6 block cursor-pointer rounded-lg border border-slate-300 py-2 text-center text-sm font-semibold text-slate-700 transition-colors duration-200 hover:border-slate-400">Hubungi</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  function landingFlashcard() {
+    return { flip: false };
+  }
+</script>
+{% endblock %}

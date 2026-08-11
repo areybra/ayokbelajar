@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Pengaturan Akun — AyokBelajar{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-2xl space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900">Pengaturan Akun</h1>
+    <p class="mt-1 text-sm text-slate-500">Kelola informasi profil dan preferensi belajarmu.</p>
+  </div>
+
+  <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <form method="post" action="{% url 'core:settings' %}" class="space-y-5" x-data="profilePrefs('{{ form.education_level.value|default:'umum' }}', '{{ form.grade.value|default:'' }}')">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-600">
+          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
+
+      <div>
+        <label for="id_email" class="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
+        <input type="email" id="id_email" value="{{ user.email }}" disabled
+               class="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-slate-500">
+        <p class="mt-1 text-xs text-slate-400">Email tidak dapat diubah.</p>
+      </div>
+
+      <div>
+        <label for="{{ form.full_name.id_for_label }}" class="mb-1.5 block text-sm font-medium text-slate-700">Nama lengkap</label>
+        {{ form.full_name }}
+        {% for error in form.full_name.errors %}<p class="mt-1 text-sm text-rose-500">{{ error }}</p>{% endfor %}
+      </div>
+
+      <div>
+        <p class="mb-3 text-sm font-semibold text-slate-800">Preferensi belajar</p>
+        <div class="space-y-5">
+          {% include 'core/_profile_preferences_fields.html' %}
+        </div>
+        <p class="mt-2 text-xs text-slate-400">Digunakan sebagai default saat membuat study kit baru.</p>
+      </div>
+
+      <div class="flex justify-end border-t border-slate-100 pt-5">
+        <button type="submit"
+                class="cursor-pointer rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">Simpan</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="font-semibold text-slate-900">Password</h2>
+        <p class="mt-1 text-sm text-slate-500">Ganti password untuk mengamankan akunmu.</p>
+      </div>
+      <a href="{% url 'password_change' %}"
+         class="cursor-pointer rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-100">Ubah Password</a>
+    </div>
+  </section>
+</div>
+{% endblock %}

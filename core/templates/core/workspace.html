@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ document.title }} — AyokBelajar{% endblock %}
+
+{% block content %}
+{{ summary|json_script:"summary-data" }}
+{{ flashcards|json_script:"flashcards-data" }}
+{{ quiz|json_script:"quiz-data" }}
+
+<div id="workspace-root" x-data="tabs()" class="space-y-6">
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+      <div>
+        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
+          {{ document.get_source_type_display }} · {{ document.created_at|date:"d M Y" }}
+          {% if document.education_level != 'umum' or document.grade %}
+            · {{ document.get_education_level_display }}{% if document.grade %} · {{ document.grade }}{% endif %}
+          {% endif %}
+        </p>
+        <h1 class="mt-1 text-xl font-bold text-slate-900">{{ document.title }}</h1>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 no-print">
+        <button type="button" onclick="Ayok.downloadMarkdown(document.getElementById('summary-plain').value, '{{ document.title|slugify }}.md')"
+                class="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:border-slate-400">
+          Unduh .md
+        </button>
+        <button type="button" onclick="Ayok.downloadAnkiCSV(Ayok.parseJsonScript('flashcards-data'), '{{ document.title|slugify }}.csv')"
+                class="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:border-slate-400">
+          Unduh Anki CSV
+        </button>
+        <button type="button" onclick="Ayok.printView()"
+                class="cursor-pointer rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">
+          Cetak PDF
+        </button>
+      </div>
+    </div>
+
+    <nav class="no-print mt-5 flex gap-1 overflow-x-auto border-b border-slate-200" aria-label="Bagian materi">
+      <button type="button" @click="active='summary'" class="cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='summary' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Rangkuman</button>
+      <button type="button" @click="active='roadmap'" class="cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='roadmap' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Peta Belajar</button>
+      <button type="button" @click="active='flashcards'" class="cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='flashcards' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Flashcards</button>
+      <button type="button" @click="active='quiz'" class="cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='quiz' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Quiz</button>
+    </nav>
+  </section>
+
+  <section x-show="active==='summary'" x-cloak>
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div id="summary-content" class="prose max-w-none text-slate-800"></div>
+      <textarea id="summary-plain" class="hidden"></textarea>
+    </div>
+  </section>
+
+  <section x-show="active==='roadmap'" x-cloak>
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-lg font-bold text-slate-900">Peta Belajar</h2>
+        <span class="text-sm font-medium text-slate-500" id="roadmap-progress">0 langkah selesai</span>
+      </div>
+      <div class="mb-4 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+        <div id="roadmap-progress-bar" class="h-full rounded-full bg-accent transition-all duration-300" style="width:0%"></div>
+      </div>
+      {% if roadmap %}
+        <ol id="roadmap-list" data-document-id="{{ document.pk }}" class="relative space-y-6 before:absolute before:inset-y-2 before:left-[19px] before:w-0.5 before:bg-slate-200">
+          {% for step in roadmap %}
+            <li class="relative flex gap-4">
+              <label class="flex cursor-pointer items-center">
+                <input type="checkbox" data-step="{{ forloop.counter }}" class="h-5 w-5 cursor-pointer rounded border-slate-300 accent-emerald-500">
+              </label>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-bold text-primary">{{ step.step }}</span>
+                  <h3 class="font-semibold text-slate-900">{{ step.title }}</h3>
+                </div>
+                <p class="mt-1 pl-11 text-sm text-slate-500">{{ step.detail }}</p>
+              </div>
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p class="text-sm text-slate-500">Belum ada peta belajar untuk materi ini.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section x-show="active==='flashcards'" x-cloak>
+    <div x-data="flashcardDeck()" x-cloak>
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-lg font-bold text-slate-900">Flashcards</h2>
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-slate-500" x-text="'Kartu ' + (cards.length ? (index+1) : 0) + ' dari ' + cards.length"></span>
+          <button type="button" @click="gridMode = !gridMode"
+                  class="cursor-pointer rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors duration-200 hover:border-slate-400"
+                  x-text="gridMode ? 'Mode Satu Kartu' : 'Mode Grid'"></button>
+        </div>
+      </div>
+
+      <div x-show="!gridMode && cards.length">
+        <div class="mx-auto max-w-lg">
+          <div class="h-72 cursor-pointer [perspective:1000px]" @click="flip = !flip">
+            <div class="relative h-full w-full transition-transform duration-500 [transform-style:preserve-3d]" :class="flipped && '[transform:rotateY(180deg)]'">
+              <div class="absolute inset-0 flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm [backface-visibility:hidden]">
+                <span class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Pertanyaan</span>
+                <p class="text-lg font-semibold text-slate-900" x-text="current.question"></p>
+              </div>
+              <div class="absolute inset-0 flex flex-col items-center justify-center rounded-xl bg-primary p-8 text-center text-white shadow-sm [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                <span class="mb-3 text-xs font-semibold uppercase tracking-wide text-indigo-200">Jawaban</span>
+                <p class="text-lg font-semibold" x-text="current.answer"></p>
+              </div>
+            </div>
+          </div>
+          <p class="mt-3 text-center text-xs text-slate-400">Klik kartu untuk membalik</p>
+
+          <div class="mt-6 flex items-center justify-between">
+            <button type="button" @click="prev()"
+                    class="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:border-slate-400">← Sebelumnya</button>
+            <button type="button" @click="flip()"
+                    class="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">Balik</button>
+            <button type="button" @click="next()"
+                    class="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:border-slate-400">Berikutnya →</button>
+          </div>
+
+          <div class="mt-4 grid grid-cols-2 gap-2">
+            <button type="button" @click="rate(false)"
+                    class="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:border-slate-400">Masih Belajar</button>
+            <button type="button" @click="rate(true)"
+                    class="cursor-pointer rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors duration-200 hover:border-emerald-400">Sudah Mahir ✓</button>
+          </div>
+        </div>
+      </div>
+
+      <div x-show="gridMode && cards.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <template x-for="(card, i) in cards" :key="i">
+          <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-sm font-semibold text-slate-900" x-text="card.question"></p>
+            <p class="mt-2 text-sm text-slate-500" x-text="card.answer"></p>
+          </div>
+        </template>
+      </div>
+
+      <p x-show="!cards.length" class="text-sm text-slate-500">Belum ada flashcard untuk materi ini.</p>
+    </div>
+  </section>
+
+  <section x-show="active==='quiz'" x-cloak>
+    <div x-data="quizEngine()" x-cloak>
+      <template x-if="!finished">
+        <div class="mx-auto max-w-2xl">
+          <div class="mb-4 flex items-center justify-between">
+            <span class="text-sm font-medium text-slate-500" x-text="'Pertanyaan ' + (index+1) + ' dari ' + questions.length"></span>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600" x-text="Math.floor(elapsed/60) + ':' + String(elapsed%60).padStart(2,'0')"></span>
+          </div>
+          <div class="mb-6 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+            <div class="h-full rounded-full bg-primary transition-all duration-300" :style="'width:' + ((index/questions.length)*100) + '%'"></div>
+          </div>
+
+          <template x-if="current">
+            <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 class="text-lg font-semibold text-slate-900" x-text="current.question"></h2>
+              <div class="mt-5 grid gap-3">
+                <template x-for="(opt, i) in current.options" :key="i">
+                  <button type="button"
+                          @click="choose(i)"
+                          :disabled="locked"
+                          class="cursor-pointer rounded-lg border px-4 py-3 text-left text-sm font-medium transition-all duration-200"
+                          :class="{
+                            'border-emerald-400 bg-emerald-50 text-emerald-800': locked && i === current.correctAnswer,
+                            'border-rose-300 bg-rose-50 text-rose-700': locked && selected === i && i !== current.correctAnswer,
+                            'border-slate-200 hover:border-slate-300': !locked,
+                            'opacity-60': locked && selected !== i && i !== current.correctAnswer,
+                          }">
+                    <span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-xs font-bold text-slate-500" x-text="String.fromCharCode(65+i)"></span>
+                    <span x-text="opt"></span>
+                  </button>
+                </template>
+              </div>
+              <div x-show="locked" class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                <span class="font-semibold text-emerald-600">Penjelasan:</span>
+                <span x-text="current.explanation"></span>
+              </div>
+              <div class="mt-6 flex justify-end">
+                <button type="button" @click="next()" x-show="locked"
+                        class="cursor-pointer rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover"
+                        x-text="index+1 < questions.length ? 'Soal Berikutnya' : 'Lihat Hasil'"></button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <template x-if="finished && !review">
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div class="w-full max-w-md rounded-xl bg-white p-8 shadow-xl">
+            <div class="flex flex-col items-center text-center">
+              <span class="flex h-16 w-16 items-center justify-center rounded-full text-2xl font-extrabold"
+                    :class="percent >= 70 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-500'"
+                    x-text="percent + '%'"></span>
+              <h2 class="mt-4 text-xl font-bold text-slate-900" x-text="percent >= 70 ? 'Luar biasa!' : 'Tetap semangat!'"></h2>
+              <p class="mt-1 text-sm text-slate-500">
+                Skor <span x-text="score"></span> dari <span x-text="questions.length"></span> soal ·
+                Waktu <span x-text="Math.floor(elapsed/60) + ':' + String(elapsed%60).padStart(2,'0')"></span>
+              </p>
+              <div class="mt-6 grid w-full gap-2">
+                <button type="button" @click="review = true"
+                        class="cursor-pointer rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-semibold text-slate-700 transition-colors duration-200 hover:border-slate-400">Tinjau Soal Terlewat</button>
+                <button type="button" @click="reset()"
+                        class="cursor-pointer rounded-lg bg-primary py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">Ulangi Quiz</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="finished && review">
+        <div class="mx-auto max-w-2xl space-y-4">
+          <h2 class="text-lg font-bold text-slate-900">Tinjau Soal Terlewat</h2>
+          <template x-for="(q, i) in missed()" :key="i">
+            <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p class="font-semibold text-slate-900" x-text="q.question"></p>
+              <p class="mt-2 text-sm text-emerald-700"><span class="font-semibold">Jawaban benar:</span> <span x-text="q.options[q.correctAnswer]"></span></p>
+              <p class="mt-1 text-sm text-slate-500" x-text="q.explanation"></p>
+            </div>
+          </template>
+          <div class="flex gap-2">
+            <button type="button" @click="reset()"
+                    class="cursor-pointer rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">Ulangi Quiz</button>
+            <button type="button" @click="active='summary'"
+                    class="cursor-pointer rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition-colors duration-200 hover:border-slate-400">Kembali ke Rangkuman</button>
+          </div>
+        </div>
+      </template>
+
+      <p x-show="!questions.length && !finished" class="text-sm text-slate-500">Belum ada soal quiz untuk materi ini.</p>
+    </div>
+  </section>
+</div>
+
+<div id="chat-panel" data-document-id="{{ document.pk }}" x-data="chatPanel()" x-cloak>
+  <div x-show="open" x-cloak class="no-print fixed bottom-4 right-4 z-50 flex h-[32rem] w-full max-w-sm flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+      <h3 class="text-sm font-bold text-slate-900">Tanya Materi (AI)</h3>
+      <button type="button" @click="open=false" class="cursor-pointer rounded-lg px-2 py-1 text-slate-400 hover:text-slate-700" aria-label="Tutup chat">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+    <div id="chat-box" class="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4">
+      {% for msg in chat_messages %}
+        <div class="flex {% if msg.role == 'user' %}justify-end{% else %}justify-start{% endif %}">
+          <div class="max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm {% if msg.role == 'user' %}bg-primary text-white{% else %}bg-white text-slate-800 shadow-sm{% endif %}">{{ msg.content }}</div>
+        </div>
+      {% endfor %}
+    </div>
+    <form @submit.prevent="send()" class="flex gap-2 border-t border-slate-200 p-3">
+      <input type="text" x-model="message" :disabled="sending" placeholder="Ajukan pertanyaan..."
+             class="flex-1 rounded-lg border border-slate-300 p-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <button type="submit" :disabled="sending" class="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-primary-hover"
+              x-text="sending ? '...' : 'Kirim'"></button>
+    </form>
+  </div>
+  <button type="button" @click="open=true" x-show="!open"
+          class="no-print fixed bottom-4 right-4 z-50 flex cursor-pointer items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg transition-colors duration-200 hover:bg-primary-hover">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>
+    Tanya AI
+  </button>
+</div>
+
+<style>[x-cloak]{display:none!important}</style>
+{% endblock %}
