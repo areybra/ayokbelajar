@@ -218,8 +218,7 @@ class ViewTests(TestCase):
         response = self.client.post(reverse('core:process'), {
             'source_type': 'text',
             'raw_text': 'Isi materi yang cukup panjang untuk belajar.',
-            'num_flashcards': 5,
-            'num_quiz': 3,
+            'learning_style': 'socratic',
         })
         self.assertEqual(response.status_code, 302)
         doc = Document.objects.get(user=self.user)
@@ -227,21 +226,19 @@ class ViewTests(TestCase):
         self.assertEqual(doc.education_level, 'sma')
         self.assertEqual(doc.grade, '10')
         self.assertEqual(doc.ai_output['summary'], '# Ringkasan')
-        self.assertEqual(self.user.profile.learning_style, 'visual')
         mock_kit.assert_called_once_with(
             'Isi materi yang cukup panjang untuk belajar.',
-            'visual',
+            'socratic',
             'sma',
             '10',
-            5,
+            mock.ANY,
         )
 
     def test_process_invalid_form_shows_errors(self):
         response = self.client.post(reverse('core:process'), {
             'source_type': 'text',
             'raw_text': '',
-            'num_flashcards': 5,
-            'num_quiz': 3,
+            'learning_style': 'detailed',
         })
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'wajib diisi')
@@ -287,8 +284,8 @@ class ViewTests(TestCase):
         )
         response = self.client.get(reverse('core:workspace', kwargs={'pk': doc.pk}))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Mind Map')
-        self.assertContains(response, 'Simulasi Ujian')
+        self.assertContains(response, 'Peta Pikiran')
+        self.assertContains(response, 'Latihan Soal')
         self.assertContains(response, 'Sumber Belajar')
         self.assertContains(response, 'Edit Rangkuman')
 
@@ -299,9 +296,12 @@ class ViewTests(TestCase):
             user=self.user, title='M', source_type='text', raw_content='x',
             ai_output=output,
         )
+        doc.practice_sessions.create(title='Sesi Ujian 1', questions=EXAM_FIXTURE)
         response = self.client.get(reverse('core:workspace', kwargs={'pk': doc.pk}))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.context['exam']), 20)
+        self.assertEqual(len(response.context['practice_sessions']), 1)
+        self.assertEqual(response.context['practice_sessions'][0]['title'], 'Sesi Ujian 1')
         self.assertEqual(response.context['resources']['search_query'], 'teori X untuk pemula')
 
     def test_summary_save_api_persists_html(self):
@@ -347,12 +347,12 @@ class ViewTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     @mock.patch('core.views.build_exam', return_value=EXAM_FIXTURE)
-    def test_exam_generate_api_creates_and_saves_exam(self, mock_exam):
+    def test_practice_generate_api_creates_and_saves_exam(self, mock_exam):
         doc = Document.objects.create(
             user=self.user, title='M', source_type='text', raw_content='materi',
             ai_output=KIT_FIXTURE, education_level='sma', grade='10',
         )
-        response = self.client.post(reverse('core:exam_generate', kwargs={'pk': doc.pk}))
+        response = self.client.post(reverse('core:practice_generate', kwargs={'pk': doc.pk}))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()['exam']), 20)
         doc.refresh_from_db()
@@ -361,25 +361,78 @@ class ViewTests(TestCase):
 
     @mock.patch('core.views.build_exam',
                 side_effect=ValueError('tepat 20 soal tetapi AI menghasilkan 5.'))
-    def test_exam_generate_api_returns_error_json(self, _mock_exam):
+    def test_practice_generate_api_returns_error_json(self, _mock_exam):
         doc = Document.objects.create(
             user=self.user, title='M', source_type='text', raw_content='materi',
             ai_output=KIT_FIXTURE,
         )
-        response = self.client.post(reverse('core:exam_generate', kwargs={'pk': doc.pk}))
+        response = self.client.post(reverse('core:practice_generate', kwargs={'pk': doc.pk}))
         self.assertEqual(response.status_code, 400)
         self.assertIn('tepat 20 soal', response.json()['error'])
         doc.refresh_from_db()
         self.assertNotIn('exam', doc.ai_output)
 
-    def test_exam_generate_api_ownership_denied(self):
+    def test_practice_generate_api_ownership_denied(self):
         other = User.objects.create_user('bob', password='pass')
         doc = Document.objects.create(
             user=other, title='M', source_type='text', raw_content='x',
             ai_output=KIT_FIXTURE,
         )
-        response = self.client.post(reverse('core:exam_generate', kwargs={'pk': doc.pk}))
+        response = self.client.post(reverse('core:practice_generate', kwargs={'pk': doc.pk}))
         self.assertEqual(response.status_code, 403)
+
+    def test_practice_save_api_saves_current_session(self):
+        doc = Document.objects.create(
+            user=self.user, title='M', source_type='text', raw_content='materi',
+            ai_output=dict(KIT_FIXTURE, exam=EXAM_FIXTURE),
+        )
+        response = self.client.post(
+            reverse('core:practice_save', kwargs={'pk': doc.pk}),
+            data=json.dumps({'title': 'Latihan Bab 1'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        session = doc.practice_sessions.get()
+        self.assertEqual(session.title, 'Latihan Bab 1')
+        self.assertEqual(session.questions, EXAM_FIXTURE)
+
+    def test_practice_save_api_requires_questions(self):
+        doc = Document.objects.create(
+            user=self.user, title='M', source_type='text', raw_content='x',
+            ai_output=KIT_FIXTURE,
+        )
+        response = self.client.post(
+            reverse('core:practice_save', kwargs={'pk': doc.pk}),
+            data=json.dumps({'title': 'Sesi'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_practice_delete_api_removes_session(self):
+        doc = Document.objects.create(
+            user=self.user, title='M', source_type='text', raw_content='x',
+            ai_output=KIT_FIXTURE,
+        )
+        session = doc.practice_sessions.create(title='Sesi A', questions=EXAM_FIXTURE)
+        other = User.objects.create_user('bob2', password='pass')
+        doc2 = Document.objects.create(
+            user=other, title='N', source_type='text', raw_content='x',
+            ai_output=KIT_FIXTURE,
+        )
+        session2 = doc2.practice_sessions.create(title='Sesi Lain', questions=EXAM_FIXTURE)
+
+        response = self.client.post(
+            reverse('core:practice_delete', kwargs={'pk': doc.pk, 'session_pk': session.pk})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(doc.practice_sessions.filter(pk=session.pk).exists())
+        self.assertTrue(doc2.practice_sessions.filter(pk=session2.pk).exists())
+
+        response = self.client.post(
+            reverse('core:practice_delete', kwargs={'pk': doc.pk, 'session_pk': session2.pk})
+        )
+        self.assertEqual(response.status_code, 404)
 
 
 class LibraryAndSettingsViewTests(TestCase):
@@ -429,14 +482,12 @@ class LibraryAndSettingsViewTests(TestCase):
         self.assertContains(response, 'Pengaturan Akun')
         form = response.context['form']
         self.assertEqual(form.initial['full_name'], '')
-        self.assertEqual(form.initial['learning_style'], 'detailed')
         self.assertEqual(form.initial['education_level'], 'umum')
         self.assertEqual(form.initial['grade'], '')
 
     def test_settings_post_updates_profile(self):
         response = self.client.post(reverse('core:settings'), {
             'full_name': 'Alice Baru',
-            'learning_style': 'visual',
             'education_level': 'smp',
             'grade': '7',
         })
@@ -444,14 +495,12 @@ class LibraryAndSettingsViewTests(TestCase):
         self.assertRedirects(response, reverse('core:settings'))
         self.user.refresh_from_db()
         self.assertEqual(self.user.first_name, 'Alice Baru')
-        self.assertEqual(self.user.profile.learning_style, 'visual')
         self.assertEqual(self.user.profile.education_level, 'smp')
         self.assertEqual(self.user.profile.grade, '7')
 
     def test_settings_grade_required_for_level(self):
         response = self.client.post(reverse('core:settings'), {
             'full_name': 'Alice',
-            'learning_style': 'visual',
             'education_level': 'sma',
             'grade': '',
         })
@@ -563,21 +612,18 @@ class PreferencesViewTests(TestCase):
 
     def test_preferences_saves_profile_and_marks_set(self):
         response = self.client.post(reverse('core:preferences'), {
-            'learning_style': 'visual',
             'education_level': 'sma',
             'grade': '11',
         })
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse('core:dashboard'))
         profile = Profile.objects.get(user=self.user)
-        self.assertEqual(profile.learning_style, 'visual')
         self.assertEqual(profile.education_level, 'sma')
         self.assertEqual(profile.grade, '11')
         self.assertTrue(profile.preferences_set)
 
     def test_preferences_grade_required_for_level(self):
         response = self.client.post(reverse('core:preferences'), {
-            'learning_style': 'visual',
             'education_level': 'smp',
             'grade': '',
         })
@@ -595,8 +641,7 @@ class PreferencesViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '<option value="sd">SD</option>', html=True)
         self.assertContains(response, '<option value="smp">SMP</option>', html=True)
-        self.assertContains(response, '<option value="visual">Visual</option>', html=True)
-        self.assertContains(response, '<option value="socratic">Socratic</option>', html=True)
+        self.assertContains(response, '<option value="socratic">Sokratus</option>', html=True)
 
     def test_dashboard_hides_modal_when_preferences_set(self):
         profile = self.user.profile

@@ -39,7 +39,7 @@
   <div id="generating-overlay" class="fixed inset-0 z-50 hidden flex-col items-center justify-center gap-5 bg-slate-900/70 backdrop-blur-sm" role="status" aria-live="polite">
     <div class="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
       <p class="text-center text-base font-semibold text-slate-900">Generating Materi Kamu...</p>
-      <p class="mt-1 text-left text-sm text-slate-500">AI sedang mengubah kontenmu menjadi rangkuman, flashcards, mind map, peta belajar, dan simulasi ujian.</p>
+      <p class="mt-1 text-left text-sm text-slate-500">AI sedang mengubah kontenmu menjadi rangkuman, kartu belajar, peta pikiran, peta belajar, dan latihan soal.</p>
       <div class="mt-6 h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
         <div id="generating-progress" class="h-full rounded-full bg-accent transition-all duration-300 ease-out" style="width:0%"></div>
       </div>
@@ -59,7 +59,6 @@
         <p class="mt-2 inline-flex flex-wrap gap-x-4 gap-y-1 rounded-lg bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
           <span>Jenjang: <strong>{{ profile.get_education_level_display }}</strong></span>
           {% if profile.grade %}<span>Kelas: <strong>{{ profile.grade }}</strong></span>{% endif %}
-          <span>Gaya belajar: <strong>{{ profile.get_learning_style_display }}</strong></span>
         </p>
       </div>
       <div class="flex gap-6 text-center">
@@ -134,17 +133,22 @@
 
         <input type="hidden" name="source_type" :value="source">
 
-        <div class="mt-6 grid gap-4 sm:grid-cols-2">
-          <div>
-            <label for="id_num_flashcards" class="mb-1.5 block text-sm font-medium text-slate-700">Jumlah Flashcard</label>
-            <input type="number" name="num_flashcards" id="id_num_flashcards" min="1" max="30" value="{{ form.num_flashcards.value|default:'10' }}"
-                   class="w-full rounded-lg border border-slate-300 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
+        <div class="mt-6">
+          <label class="mb-1.5 block text-sm font-medium text-slate-700">Gaya belajar</label>
+          <select name="learning_style" id="id_learning_style"
+                  class="w-full rounded-lg border border-slate-300 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="visual" {% if form.learning_style.value == 'visual' %}selected{% endif %}>Visual</option>
+            <option value="eli5" {% if form.learning_style.value == 'eli5' %}selected{% endif %}>Jelaskan seperti aku sedang belajar</option>
+            <option value="detailed" {% if form.learning_style.value == 'detailed' %}selected{% endif %}>Detail</option>
+            <option value="socratic" {% if form.learning_style.value == 'socratic' %}selected{% endif %}>Sokratus</option>
+          </select>
+          {% for error in form.learning_style.errors %}<p class="mt-1 text-sm text-rose-500">{{ error }}</p>{% endfor %}
         </div>
       </div>
 
       <button type="submit"
-              class="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">
+              class="mt-6 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover"
+              id="generate-btn">
         <span aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>
         </span>

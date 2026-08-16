@@ -1,4 +1,5 @@
 import json
+from random import randint
 
 from django.conf import settings
 from django.contrib import messages
@@ -14,7 +15,7 @@ from django.views.decorators.http import require_POST
 
 from . import supabase_auth
 from .forms import ProfilePreferencesForm, RegisterForm, SettingsForm, StudyKitForm
-from .models import ChatMessage, Document, UserActivity
+from .models import ChatMessage, Document, PracticeSession, UserActivity
 from .services import (
     build_exam,
     build_learning_kit,
@@ -140,7 +141,7 @@ def dashboard_view(request):
 @login_required
 @require_POST
 def preferences_view(request):
-    """Simpan preferensi belajar (jenjang, kelas, gaya belajar) dari modal."""
+    """Simpan preferensi belajar (jenjang, kelas) dari modal."""
     profile = request.user.profile
     form = ProfilePreferencesForm(request.POST)
     if not form.is_valid():
@@ -153,11 +154,10 @@ def preferences_view(request):
         })
 
     data = form.cleaned_data
-    profile.learning_style = data['learning_style']
     profile.education_level = data['education_level']
     profile.grade = data['grade']
     profile.preferences_set = True
-    profile.save(update_fields=['learning_style', 'education_level', 'grade', 'preferences_set'])
+    profile.save(update_fields=['education_level', 'grade', 'preferences_set'])
     messages.success(request, 'Preferensi belajarmu berhasil disimpan. Selamat belajar!')
     return redirect(reverse('core:dashboard'))
 
@@ -181,7 +181,6 @@ def settings_view(request):
         request.POST or None,
         initial={
             'full_name': request.user.first_name,
-            'learning_style': profile.learning_style,
             'education_level': profile.education_level,
             'grade': profile.grade,
         },
@@ -190,10 +189,9 @@ def settings_view(request):
         data = form.cleaned_data
         request.user.first_name = data['full_name']
         request.user.save(update_fields=['first_name'])
-        profile.learning_style = data['learning_style']
         profile.education_level = data['education_level']
         profile.grade = data['grade']
-        profile.save(update_fields=['learning_style', 'education_level', 'grade'])
+        profile.save(update_fields=['education_level', 'grade'])
         messages.success(request, 'Pengaturan akun berhasil disimpan.')
         return redirect(reverse('core:settings'))
     return render(request, 'core/settings.html', {'form': form})
@@ -229,12 +227,15 @@ def process_content_view(request):
         # Preferensi jenjang, kelas, dan gaya belajar diambil dari profil user.
         profile = request.user.profile
 
+        # Default jumlah kartu belajar acak 5-10 jika tidak dispecifikasi
+        num_flashcards = data.get('num_flashcards') or randint(5, 10)
+
         ai_output = build_learning_kit(
             raw_content,
-            profile.learning_style,
+            data.get('learning_style') or profile.learning_style,
             profile.education_level,
             profile.grade,
-            data['num_flashcards'],
+            num_flashcards,
         )
 
         document = Document.objects.create(
@@ -259,6 +260,15 @@ def workspace_view(request, pk):
     if document.user != request.user:
         raise PermissionDenied
     output = document.ai_output
+    practice_sessions = [
+        {
+            'id': session.pk,
+            'title': session.title or f'Sesi #{session.pk}',
+            'questions': session.questions,
+            'created_label': session.created_at.strftime('%d %b %Y'),
+        }
+        for session in document.practice_sessions.all()
+    ]
     return render(request, 'core/workspace.html', {
         'document': document,
         'summary': output.get('summary', ''),
@@ -266,6 +276,7 @@ def workspace_view(request, pk):
         'flashcards': output.get('flashcards', []),
         'resources': output.get('resources') or {},
         'exam': output.get('exam') or [],
+        'practice_sessions': practice_sessions,
         'chat_messages': document.chat_messages.all(),
     })
 
@@ -330,8 +341,8 @@ def summary_save_api_view(request, pk):
 
 @login_required
 @require_POST
-def exam_generate_api_view(request, pk):
-    """Generate simulasi ujian tepat 20 soal dari materi dokumen."""
+def practice_generate_api_view(request, pk):
+    """Generate latihan soal baru (20 soal) dari materi dokumen."""
     document = get_object_or_404(Document, pk=pk)
     if document.user != request.user:
         raise PermissionDenied
@@ -346,6 +357,51 @@ def exam_generate_api_view(request, pk):
     document.ai_output = ai_output
     document.save(update_fields=['ai_output'])
     return JsonResponse({'ok': True, 'exam': questions})
+
+
+@login_required
+@require_POST
+def practice_save_api_view(request, pk):
+    """Simpan sesi latihan soal (sesi saat ini) untuk dipelajari ulang."""
+    document = get_object_or_404(Document, pk=pk)
+    if document.user != request.user:
+        raise PermissionDenied
+
+    try:
+        payload = json.loads(request.body or b'{}')
+    except json.JSONDecodeError:
+        payload = {}
+    title = (payload.get('title') or '').strip()[:255]
+
+    questions = (document.ai_output or {}).get('exam') or []
+    if not questions:
+        return JsonResponse({'error': 'Belum ada soal latihan untuk disimpan.'}, status=400)
+
+    session = PracticeSession.objects.create(
+        document=document,
+        title=title or f'Sesi #{document.practice_sessions.count() + 1}',
+        questions=questions,
+    )
+    return JsonResponse({
+        'ok': True,
+        'session': {
+            'id': session.pk,
+            'title': session.title,
+            'created_label': session.created_at.strftime('%d %b %Y'),
+        },
+    })
+
+
+@login_required
+@require_POST
+def practice_delete_api_view(request, pk, session_pk):
+    """Hapus satu sesi latihan soal yang tersimpan."""
+    document = get_object_or_404(Document, pk=pk)
+    if document.user != request.user:
+        raise PermissionDenied
+    session = get_object_or_404(PracticeSession, pk=session_pk, document=document)
+    session.delete()
+    return JsonResponse({'ok': True})
 
 
 @login_required

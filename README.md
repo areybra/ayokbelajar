@@ -1,19 +1,19 @@
 # AyokBelajar
+[![Version](https://img.shields.io/badge/version-0.0.1--minor-blue)](https://github.com/areybra/ayokbelajar/releases)
 
 Aplikasi belajar interaktif berbasis **Django 5.2** yang mengubah materi belajar (teks, PDF, YouTube)
-menjadi paket belajar lengkap: **rangkuman, mind map, peta belajar (roadmap), flashcards, dan simulasi ujian** —
+menjadi paket belajar lengkap: **rangkuman, peta pikiran, peta belajar (roadmap), kartu belajar, dan latihan soal** —
 semuanya dihasilkan oleh **Google Gemini API**. Plus **chat dengan dokumen** untuk bertanya langsung tentang materi.
 
-> Status: **Development** — fitur aktif dikembangkan.
+> Status: **Development** — fitur aktif dikembangkan. Versi 0.0.1 (minor release — perpindahan learning_style ke form study kit dan perbaikan terminologi Bahasa Indonesia).
 
 ## Fitur
 
 - 📄 **3 sumber materi**: tempel teks, URL YouTube (transkrip otomatis), atau unggah PDF (maks 20 MB).
-- 🧠 **Study kit otomatis** via Gemini: rangkuman markdown, mind map, roadmap bertahap, flashcard, dan sumber belajar tambahan.
-- 📝 **Simulasi ujian** 20 soal pilihan ganda (dibuat AI saat diminta), lengkap timer + skor & pembahasan.
-- ✏️ **Edit rangkuman** dengan toolbar rich text, hasil tersimpan ke dokumen.
-- 🎨 **Preferensi belajar** tersimpan di profil: jenjang pendidikan, kelas/semester, dan gaya belajar
-  (Visual, ELI5, Detailed, Socratic) — diisi sekali saat awal, bisa diubah di halaman Settings.
+- 🧠 **Study kit otomatis** via Gemini: rangkuman markdown, peta pikiran, roadmap bertahap, kartu belajar, dan sumber belajar tambahan.
+- 📝 **Latihan soal** 20 soal pilihan ganda (dibuat AI saat diminta), lengkap timer + skor & pembahasan.
+- ✏️ **Edit rangkuman** — hasil tersimpan ke dokumen.
+- 🎨 **Preferensi akun** tersimpan di profil: jenjang pendidikan, kelas/semester. Gaya belajar (Visual, ELI5, Detailed, Socratic) dipilih saat membuat study kit baru di dashboard.
 - 💬 **Chat dengan dokumen**: tanya jawab kontekstual tanpa vector database (zero-RAG).
 - 📤 **Export**: Markdown & Anki CSV (client-side Blob), cetak PDF.
 - 🔥 **Perlengkapan motivasi**: statistik materi, sisa kredit bulanan, dan streak hari belajar.
@@ -32,11 +32,11 @@ semuanya dihasilkan oleh **Google Gemini API**. Plus **chat dengan dokumen** unt
 
 ## Cara Kerja
 
-1. Login/daftar → isi preferensi belajar (jenjang, kelas, gaya belajar).
-2. Masukkan materi (teks / YouTube / PDF) di Dashboard → *Generate Study Kit*.
-3. Gemini memproses materi dan menghasilkan rangkuman, mind map, roadmap, flashcard, dan sumber belajar.
-4. Minta *Simulasi Ujian* (20 soal) kapan saja dari workspace — timer, skor, & pembahasan otomatis.
-5. Buka workspace untuk belajar, export, atau bertanya ke AI tentang materi.
+1. Login/daftar → isi preferensi akun (jenjang, kelas). Gaya belajar dipilih saat membuat study kit.
+2. Masukkan materi (teks / YouTube / PDF) di Dashboard → klik *Generate Study Kit*.
+3. Gemini memproses materi dan menghasilkan rangkuman, peta pikiran, roadmap, kartu belajar, dan sumber belajar.
+4. Buka workspace → minta *Latihan Soal* (20 soal) — timer, skor, & pembahasan otomatis.
+5. Di workspace, kamu juga bisa edit rangkuman, export, atau bertanya ke AI tentang materi.
 
 ## Prasyarat
 

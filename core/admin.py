@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ChatMessage, Document, Profile
+from .models import ChatMessage, Document, PracticeSession, Profile
 
 
 @admin.register(Profile)
@@ -20,3 +20,9 @@ class DocumentAdmin(admin.ModelAdmin):
 class ChatMessageAdmin(admin.ModelAdmin):
     list_display = ('document', 'role', 'created_at')
     list_filter = ('role',)
+
+
+@admin.register(PracticeSession)
+class PracticeSessionAdmin(admin.ModelAdmin):
+    list_display = ('document', 'title', 'created_at')
+    search_fields = ('document__title', 'title')

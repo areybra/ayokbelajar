@@ -64,7 +64,7 @@ Aturan: teks konten **minimal `slate-500`** untuk sekunder dan `slate-700` untuk
 
 ## 5. Bahasa
 - Semua UI **Bahasa Indonesia** (kecuali istilah teknis umum).
-- Konsisten: "simulasi ujian" (bukan quiz), "rangkuman" (bukan ringkasan), "peta belajar", "sumber belajar".
+- Konsisten: "latihan soal" (bukan quiz), "rangkuman" (bukan ringkasan), "peta belajar", "sumber belajar".
 - Hindari bahasa Inggris di heading jika Indonesia sudah natural.
 - Tidak menyebut versi model AI konkret di UI bila rawan kedaluwarsa.
 

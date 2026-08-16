@@ -22,12 +22,6 @@ _SELECT_CLASS = (
 class ProfilePreferencesForm(forms.Form):
     """Preferensi belajar profil: gaya belajar, jenjang pendidikan, dan kelas."""
 
-    learning_style = forms.ChoiceField(
-        choices=Profile.LEARNING_STYLES,
-        initial='detailed',
-        label='Gaya belajar',
-        widget=forms.Select(attrs={'class': _SELECT_CLASS}),
-    )
     education_level = forms.ChoiceField(
         choices=EDUCATION_LEVELS,
         initial='umum',
@@ -78,29 +72,23 @@ class StudyKitForm(forms.Form):
         required=False,
     )
     pdf_file = forms.FileField(required=False, help_text='Maksimal 20 MB.')
-    num_flashcards = forms.IntegerField(
-        min_value=1,
-        max_value=30,
-        initial=10,
-        widget=forms.NumberInput(attrs={'min': 1, 'max': 30}),
+    learning_style = forms.ChoiceField(
+        choices=Profile.LEARNING_STYLES,
+        initial='detailed',
+        label='Gaya belajar',
+        error_messages={'required': 'Gaya belajar wajib dipilih.'},
+        widget=forms.Select(attrs={'class': _SELECT_CLASS}),
     )
 
     def clean(self):
         cleaned = super().clean()
         source_type = cleaned.get('source_type')
-
-        if source_type == 'youtube' and not cleaned.get('youtube_url'):
-            self.add_error('youtube_url', 'URL YouTube wajib diisi untuk sumber video.')
         if source_type == 'text' and not cleaned.get('raw_text'):
-            self.add_error('raw_text', 'Teks materi wajib diisi untuk sumber teks.')
-        if source_type == 'pdf':
-            pdf = cleaned.get('pdf_file')
-            if not pdf:
-                self.add_error('pdf_file', 'File PDF wajib diunggah.')
-            elif pdf.size > MAX_PDF_SIZE_MB * 1024 * 1024:
-                self.add_error('pdf_file', f'File maksimal {MAX_PDF_SIZE_MB} MB.')
-            elif not pdf.name.lower().endswith('.pdf'):
-                self.add_error('pdf_file', 'File harus berformat PDF.')
+            self.add_error('raw_text', 'Teks materi wajib diisi.')
+        elif source_type == 'youtube' and not cleaned.get('youtube_url'):
+            self.add_error('youtube_url', 'URL YouTube wajib diisi.')
+        elif source_type == 'pdf' and not cleaned.get('pdf_file'):
+            self.add_error('pdf_file', 'File PDF wajib diunggah.')
         return cleaned
 
 

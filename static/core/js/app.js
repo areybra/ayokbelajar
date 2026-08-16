@@ -272,12 +272,30 @@
     };
   };
 
-  window.examEngine = function () {
+  window.practiceEngine = function () {
     var EXAM_MINUTES = 30;
     var EXAM_DURATION = EXAM_MINUTES * 60;
     var questions = parseJsonScript('exam-data') || [];
+    var sessions = parseJsonScript('practice-sessions-data') || [];
+    var docId = (document.querySelector('[data-document-id]') || {}).dataset.documentId;
+
+    function defaultTitle() {
+      var d = new Date();
+      var label = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+      return 'Latihan soal - ' + label;
+    }
+    function sessionFrom(s) {
+      return { id: s.id, title: s.title, questions: s.questions || [], created_label: s.created_label || '' };
+    }
+
     return {
       questions: questions,
+      sessions: sessions.map(sessionFrom),
+      activeSession: null,
+      sessionSaved: false,
+      sessionTitle: defaultTitle(),
+      saveStatus: '',
+      savingSession: false,
       index: 0,
       answers: {},
       remaining: EXAM_DURATION,
@@ -313,8 +331,7 @@
         var self = this;
         this.generating = true;
         this.error = '';
-        var docId = document.querySelector('[data-document-id]').dataset.documentId;
-        fetch('/workspace/' + docId + '/exam/generate/', {
+        fetch('/workspace/' + docId + '/practice/generate/', {
           method: 'POST',
           headers: { 'X-CSRFToken': getCookie('csrftoken') },
         })
@@ -322,13 +339,80 @@
           .then(function (data) {
             if (data && data.ok && data.exam) {
               self.questions = data.exam;
+              self.activeSession = null;
+              self.sessionSaved = false;
+              self.sessionTitle = defaultTitle();
+              self.saveStatus = '';
               self.start();
             } else {
-              self.error = (data && data.error) || 'Gagal generate ujian.';
+              self.error = (data && data.error) || 'Gagal generate latihan.';
             }
           })
           .catch(function () { self.error = 'Gagal terhubung. Coba lagi.'; })
           .finally(function () { self.generating = false; });
+      },
+      loadSession: function (s) {
+        var sess = sessionFrom(s);
+        this.questions = sess.questions;
+        this.activeSession = sess;
+        this.sessionSaved = true;
+        this.sessionTitle = sess.title;
+        this.saveStatus = '';
+        this.answers = {};
+        this.index = 0;
+        this.running = false;
+        this.finished = false;
+        this.review = false;
+        this.error = '';
+        if (this._timer) clearInterval(this._timer);
+        this._timer = null;
+        this.remaining = EXAM_DURATION;
+      },
+      saveSession: function () {
+        var self = this;
+        if (this.savingSession) return;
+        var title = (this.sessionTitle || '').trim();
+        if (!title) {
+          this.saveStatus = 'Beri nama sesi dulu sebelum menyimpan.';
+          return;
+        }
+        this.savingSession = true;
+        fetch('/workspace/' + docId + '/practice/save/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+          body: JSON.stringify({ title: title }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data && data.ok && data.session) {
+              var sess = sessionFrom(data.session);
+              sess.questions = self.questions;
+              self.sessions = [sess].concat(self.sessions.filter(function (x) { return x.id !== sess.id; }));
+              self.activeSession = sess;
+              self.sessionSaved = true;
+              self.saveStatus = 'Tersimpan ✓';
+            } else {
+              self.saveStatus = (data && data.error) || 'Gagal menyimpan sesi.';
+            }
+          })
+          .catch(function () { self.saveStatus = 'Gagal terhubung. Coba lagi.'; })
+          .finally(function () { self.savingSession = false; });
+      },
+      deleteSession: function (s) {
+        var self = this;
+        if (!window.confirm('Hapus sesi "' + s.title + '"? Sesi yang dihapus tidak bisa dikembalikan.')) return;
+        fetch('/workspace/' + docId + '/practice/' + s.id + '/delete/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data && data.ok) {
+              self.sessions = self.sessions.filter(function (x) { return x.id !== s.id; });
+              if (self.activeSession && self.activeSession.id === s.id) self.activeSession = null;
+            }
+          })
+          .catch(function () { /* diam saja; sesi tetap ada */ });
       },
       start: function () {
         var self = this;

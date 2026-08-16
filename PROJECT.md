@@ -8,7 +8,7 @@ Gunakan dokumen ini sebagai referensi cepat agar tidak perlu membaca seluruh sou
 ## 1. Ringkasan
 
 Aplikasi belajar interaktif berbasis Django 5.2 yang mengubah materi belajar (teks, PDF, YouTube)
-menjadi paket belajar lengkap: **rangkuman, mind map, peta belajar (roadmap), flashcards, dan simulasi ujian** — yang
+menjadi paket belajar lengkap: **rangkuman, mind map, peta belajar (roadmap), flashcards, dan latihan soal** — yang
 dihasilkan oleh **Google Gemini API**. Tambahan: **chat dengan dokumen** untuk bertanya tentang materi.
 
 - **Lokasi proyek:** `C:\yok\ayokbelajar_proj`
@@ -114,7 +114,7 @@ Relasi: `User 1—1 Profile`, `User 1—N Document`, `Document 1—N ChatMessage
 /workspace/<pk>/                workspace_view            (tampilkan paket belajar)
 /workspace/<pk>/chat/           chat_api_view             (POST JSON -> jawaban AI)
 /workspace/<pk>/summary/        summary_save_api_view     (POST JSON -> simpan edit rangkuman)
-/workspace/<pk>/exam/generate/  exam_generate_api_view    (POST -> generate 20 soal)
+/workspace/<pk>/practice/generate/  practice_generate_api_view    (POST -> generate 20 soal)
 /workspace/<pk>/delete/         delete_document_view
 ```
 
@@ -132,7 +132,7 @@ Relasi: `User 1—1 Profile`, `User 1—N Document`, `Document 1—N ChatMessage
 3. Simpan `Document` (raw_content + metadata).
 4. Panggil Gemini sekali untuk membuat `ai_output` berisi:
    `summary` (markdown), `roadmap` (steps), `flashcards`, `resources`.
-   `exam` (20 soal pilihan ganda) DIBUAT TERPISAH via `/workspace/<pk>/exam/generate/`.
+   `exam` (20 soal pilihan ganda) DIBUAT TERPISAH via `/workspace/<pk>/practice/generate/`.
 5. `_parse_json` memastikan output AI valid (fallback struktural jika JSON tidak bersih).
 
 ### 5.4 Chat dengan Dokumen (`chat_with_document`)
@@ -145,11 +145,11 @@ Relasi: `User 1—1 Profile`, `User 1—N Document`, `Document 1—N ChatMessage
 - **Anki CSV:** `Ayok.downloadAnkiCSV` -> Blob CSV ber-BOM UTF-8.
 - **Cetak PDF:** `window.print()` + CSS `no-print`.
 
-### 5.6 Simulasi Ujian (`exam`)
-- 20 soal pilihan ganda, dibuat AI **sesaat diminta** lewat `/workspace/<pk>/exam/generate/`
-  (bukan saat generate materi) — karena itu kredit & proses materi tidak menunggu soal ujian.
+### 5.6 Latihan Soal (`exam`)
+- 20 soal pilihan ganda, dibuat AI **sesaat diminta** lewat `/workspace/<pk>/practice/generate/`
+  (bukan saat generate materi) — karena itu kredit & proses materi tidak menunggu soal latihan.
 - Item soal: `{question, options[4], correctAnswer (int 0-3), explanation}`.
-- Pengaturan waktu: 30 menit di client (`app.js` `examEngine`); lulus bila skor ≥ 70%.
+- Pengaturan waktu: 30 menit di client (`app.js` `practiceEngine`); lulus bila skor ≥ 70%.
 
 ### 5.7 Kredit & Streak
 - **Kredit bulanan:** `FREE_MONTHLY_DOCUMENT_LIMIT` (default 3) dikurangi jumlah dokumen bulan
@@ -160,7 +160,7 @@ Relasi: `User 1—1 Profile`, `User 1—N Document`, `Document 1—N ChatMessage
 ### 5.8 Loading State
 - **Generate materi** (dashboard): overlay progress bar + persentase (palsu/indikasi, karena submit
   full-page POST).
-- **Simulasi ujian** (workspace): skeleton loader menyerupai layout soal.
+- **Latihan soal** (workspace): skeleton loader menyerupai layout soal.
 - Pedoman selengkapnya di `rules.md`.
 
 ---
@@ -200,7 +200,7 @@ File yang dibaca: **`C:\yok\ayokbelajar_proj\.env`** (bukan `C:\yok\.env` yang s
 | 10 | "Layanan AI sedang ramai" (429/5xx) | Retry 5× + delay eksponensial + jitter; fallback multi-model (`GEMINI_FALLBACK_MODELS`) | `services.py`, `settings.py` |
 | 11 | Model fallback `gemini-2.0-flash` sudah tidak ada (404) | Ganti default ke `gemini-2.5-flash,gemini-2.5-flash-lite`; APIError 404/400 dianggap "model tidak tersedia" → lanjut model berikut | `settings.py`, `services.py` |
 | 12 | Statistik dashboard palsu (kredit & streak hardcoded) | Model `UserActivity` + hitung kredit bulanan nyata; tampilkan SVG (bukan emoji) | `models.py`, `views.py`, `dashboard.html` |
-| 13 | Aksesibilitas & konsistensi UI | `skip-link`, `focus-visible`, emoji struktural → SVG hemat, copy quiz→simulasi ujian | `base.html`, semua template |
+| 13 | Aksesibilitas & konsistensi UI | `skip-link`, `focus-visible`, emoji struktural → SVG hemat, copy quiz→latihan soal | `base.html`, semua template |
 | 14 | `YouTubeTranscriptApi.list_transcripts` error (API v1.2.4) | Tidak pakai classmethod lama; gunakan **instance** `YouTubeTranscriptApi().list(video_id)` | `services.py` |
 
 ---

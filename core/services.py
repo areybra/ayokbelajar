@@ -227,13 +227,9 @@ def build_learning_kit(raw_content, learning_style, education_level, grade, num_
 Kamu adalah asisten pembelajaran AI bernama AyokBelajar.
 
 Berdasarkan materi di bawah, buat "learning kit" lengkap dengan struktur berikut:
-1. summary: rangkuman materi yang LENGKAP, PADAT, dan MENDALAM dalam format Markdown. JANGAN membuat rangkuman singkat/superficial. Uraikan secara rinci namun tidak bertele-tele, dengan struktur heading & sub-heading yang jelas. Rangkuman WAJIB memuat:
-   - Pendahuluan & latar belakang konsep topik;
-   - Teori inti, definisi, istilah, dan konsep kunci;
-   - Permasalahan yang dibahas beserta solusi atau pendekatan penyelesaiannya;
-   - Prinsip, rumus, proses, dan contoh penerapan yang konkret;
-   - Kesimpulan utama;
-   - Di akhiri dengan bagian bertajuk "## Glosarium" berisi daftar istilah penting beserta penjelasan singkatnya (minimal 5 istilah).
+1. summary: rangkuman materi yang LENGKAP, PADAT, dan MENDALAM dalam format Markdown. JANGAN membuat rangkuman singkat/superficial. Uraikan secara rinci namun tidak bertele-tele.
+   JANGAN mengikuti kerangka baku yang sama untuk semua topik (mis. tidak wajib memuat "Pendahuluan → Teori inti → Permasalahan → Proses → Kesimpulan → Glosarium"). Susun rangkuman secara ALAMI seperti catatan belajar yang hidup, mengikuti alur logis materi itu sendiri, dan bervariasi antar topik. Definisi, istilah, prinsip, rumus, proses, contoh penerapan, serta penutup dihadirkan di tempat yang paling natural sesuai alur pembahasan — bukan sebagai daftar bagian template yang kaku dan berulang.
+   Tetap gunakan heading & sub-heading bila benar-benar membantu mengelompokkan konsep, dengan susunan yang RAPI, mudah dibaca, dan enak diikuti — sekaligus tidak terasa monoton seperti dokumen template/cetakan. Hindari kesan "jawaban kuis/AI"; tulislah seperti rangkuman yang menuntun pembaca memahami konsep secara berurutan.
 2. roadmap: peta belajar bertahap (3-6 langkah) berupa array objek {{step, title, detail}}.
 3. flashcards: array objek {{question, answer}} sebanyak {num_flashcards} kartu.
 4. resources: objek {{books: [{{title, note}}], articles: [{{title, note}}], search_query}} berisi:
@@ -324,15 +320,15 @@ def _parse_json(text):
 
 
 def _validate_exam_item(item):
-    """Validasi satu soal exam (multiple_choice saja)."""
+    """Validasi satu soal latihan (multiple_choice saja)."""
     options = item.get('options')
     if not options or len(options) != 4:
-        raise ValueError('Soal ujian harus memiliki 4 opsi jawaban.')
+        raise ValueError('Soal latihan harus memiliki 4 opsi jawaban.')
     ca = item.get('correctAnswer')
     if not isinstance(ca, int) or ca < 0 or ca > 3:
         raise ValueError('correctAnswer multiple choice harus index 0-3')
     if not item.get('question'):
-        raise ValueError('Soal ujian harus memiliki pertanyaan.')
+        raise ValueError('Soal latihan harus memiliki pertanyaan.')
     if not item.get('explanation'):
         raise ValueError('Setiap soal harus memiliki explanation')
 
@@ -341,13 +337,13 @@ EXAM_TOTAL_QUESTIONS = 20
 
 
 def build_exam(raw_content, education_level='umum', grade=''):
-    """Hasilkan simulasi ujian persis 20 soal pilihan ganda (timer & skor di client)."""
+    """Hasilkan latihan soal persis 20 soal pilihan ganda (timer & skor di client)."""
     level_prompt = EDUCATION_LEVELS.get(education_level, EDUCATION_LEVELS['umum'])
     grade_label = f' ({grade})' if grade else ''
     prompt = f"""
-Kamu adalah penyusun soal ujian bernama AyokBelajar.
+Kamu adalah penyusun soal latihan bernama AyokBelajar.
 
-Berdasarkan materi di bawah, buat simulasi ujian PERSIS {EXAM_TOTAL_QUESTIONS} soal pilihan ganda (multiple_choice). Berikut format output JSON valid:
+Berdasarkan materi di bawah, buat latihan soal PERSIS {EXAM_TOTAL_QUESTIONS} soal pilihan ganda (multiple_choice). Berikut format output JSON valid:
 {{
   "exam": [
     {{"question_type": "multiple_choice", "question", "options" (4 pilihan A-D), "correctAnswer" (index 0-3), "explanation"}}
@@ -409,7 +405,7 @@ MATERIAL:
         questions = questions[:EXAM_TOTAL_QUESTIONS]
     if len(questions) < EXAM_TOTAL_QUESTIONS:
         raise ValueError(
-            f'Simulasi ujian membutuhkan tepat {EXAM_TOTAL_QUESTIONS} soal, '
+            f'Latihan soal membutuhkan tepat {EXAM_TOTAL_QUESTIONS} soal, '
             f'tetapi AI hanya menghasilkan {len(questions)}. Silakan coba generate lagi.'
         )
     for item in questions:

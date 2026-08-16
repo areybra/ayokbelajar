@@ -78,6 +78,26 @@ class Document(models.Model):
         return self.title
 
 
+class PracticeSession(models.Model):
+    """Sesi latihan soal yang tersimpan untuk dipelajari ulang."""
+
+    document = models.ForeignKey(
+        Document,
+        on_delete=models.CASCADE,
+        related_name='practice_sessions',
+        db_index=True,
+    )
+    title = models.CharField(max_length=255, blank=True, default='')
+    questions = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title or f'Sesi #{self.pk}'
+
+
 class ChatMessage(models.Model):
     ROLE_CHOICES = (
         ('user', 'User'),
