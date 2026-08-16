@@ -30,7 +30,7 @@
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@15.0.4/marked.min.js"></script>
-  <script src="{% static 'core/js/app.js' %}?v=2"></script>
+  <script src="{% static 'core/js/app.js' %}?v=6"></script>
   <script>
     function profilePrefs(initialLevel, initialGrade) {
       return {
@@ -62,6 +62,48 @@
       color: #4F46E5;
       font-weight: 600;
     }
+    .skeleton {
+      position: relative;
+      overflow: hidden;
+      background-color: #e2e8f0;
+      border-radius: 0.375rem;
+    }
+    .skeleton::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+      animation: skeleton-shimmer 1.4s infinite;
+    }
+    @keyframes skeleton-shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .skip-link {
+      position: absolute;
+      left: 0.75rem;
+      top: -100%;
+      z-index: 60;
+      background: #4F46E5;
+      color: #fff;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 0.6rem 1rem;
+      border-radius: 0.5rem;
+      transition: top 0.15s ease;
+    }
+    .skip-link:focus {
+      top: 0.75rem;
+    }
+    button:focus-visible,
+    a:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid #4F46E5;
+      outline-offset: 2px;
+    }
     @media (prefers-reduced-motion: reduce) {
       * { transition: none !important; animation: none !important; }
     }
@@ -69,6 +111,7 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body class="h-full bg-slate-50 text-slate-900 antialiased">
+  <a href="#main-content" class="no-print skip-link">Langsung ke konten</a>
   {% block body %}
   <div class="min-h-screen">
     {% if user.is_authenticated %}
@@ -141,7 +184,7 @@
     </nav>
     {% endif %}
 
-    <main class="{% if user.is_authenticated %}px-4 py-6 sm:px-6 lg:px-10{% else %}mx-auto max-w-7xl px-4 py-8 sm:px-6{% endif %}">
+    <main id="main-content" class="{% if user.is_authenticated %}px-4 py-6 sm:px-6 lg:px-10{% else %}mx-auto max-w-7xl px-4 py-8 sm:px-6{% endif %}">
       {% if messages %}
         <div class="mb-6 space-y-2">
           {% for message in messages %}

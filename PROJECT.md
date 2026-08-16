@@ -8,7 +8,7 @@ Gunakan dokumen ini sebagai referensi cepat agar tidak perlu membaca seluruh sou
 ## 1. Ringkasan
 
 Aplikasi belajar interaktif berbasis Django 5.2 yang mengubah materi belajar (teks, PDF, YouTube)
-menjadi paket belajar lengkap: **rangkuman, peta belajar (roadmap), flashcards, dan quiz** — yang
+menjadi paket belajar lengkap: **rangkuman, mind map, peta belajar (roadmap), flashcards, dan simulasi ujian** — yang
 dihasilkan oleh **Google Gemini API**. Tambahan: **chat dengan dokumen** untuk bertanya tentang materi.
 
 - **Lokasi proyek:** `C:\yok\ayokbelajar_proj`
@@ -28,7 +28,7 @@ dihasilkan oleh **Google Gemini API**. Tambahan: **chat dengan dokumen** untuk b
 | Django | 5.2.17 |
 | Google SDK | `google-genai` 2.17.0 |
 | PDF | `pypdf` 6.15.0 |
-| YouTube transcript | `youtube-transcript-api` 1.2.4 |
+| YouTube transcript | `youtube-transcript-api` 1.2.4 — **pakai instance `.list(video_id)`**, bukan `list_transcripts` (dihapus di v1.2.4) |
 | HTTP | `httpx` |
 | Web server prod | `gunicorn` + `whitenoise` 6.12.0 (statics) |
 | DB prod | `psycopg` (PostgreSQL) |
@@ -55,10 +55,10 @@ C:\yok\ayokbelajar_proj\
 │   └── urls.py                 <- root urls (mount core + accounts/)
 ├── core\
 │   ├── urls.py                 <- semua route app
-│   ├── views.py                <- 9 view functions (landing..delete_document)
+│   ├── views.py                <- view functions (landing..delete_document)
 │   ├── services.py             <- logika bisnis + integrasi Gemini
 │   ├── supabase_auth.py        <- PKCE, authorize_url, exchange_code, sign_up
-│   ├── models.py               <- Profile, Document, ChatMessage
+│   ├── models.py               <- Profile, Document, ChatMessage, UserActivity
 │   ├── forms.py                <- StudyKitForm, RegisterForm
 │   ├── signals.py              <- buat Profile otomatis saat User dibuat
 │   ├── apps.py                 <- ready() memuat signals
@@ -68,11 +68,15 @@ C:\yok\ayokbelajar_proj\
 │   ├── base.html               <- layout: sidebar (login) / top navbar (anonim); [x-cloak] CSS
 │   ├── registration\login.html <- tombol Google/GitHub + form email/password
 │   └── core\
-│       ├── dashboard.html      <- form input materi (Alpine: source switcher + x-cloak)
-│       ├── workspace.html      <- tampilan paket belajar + chat panel
+│       ├── dashboard.html      <- form input materi (Alpine: source switcher + x-cloak) + kredit/streak
+│       ├── workspace.html      <- tampilan paket belajar (tab, editor rangkuman, ujian) + chat panel
+│       ├── library.html        <- daftar materi + paginasi
+│       ├── settings.html       <- pengaturan profil & preferensi
 │       ├── register.html
+│       ├── _profile_preferences_fields.html
 │       └── landing.html
-└── static\core\js\app.js       <- export md/csv (Blob), render markdown, quiz, flashcards, chat
+├── rules.md                    <- pedoman UI/UX proyek (design tokens, ikon hemat, a11y)
+└── static\core\js\app.js       <- export md/csv (Blob), markdown, flashcards, ujian, chat, editor
 ```
 
 > `C:\yok\core` (di luar proyek) adalah stub lama — **abaikan**.
@@ -84,10 +88,11 @@ C:\yok\ayokbelajar_proj\
 | Model | Field utama |
 |---|---|
 | `Profile` | user (OneToOne), learning_style, education_level, grade |
-| `Document` | user (FK), title, source_type (text/youtube/pdf), source_url, raw_content, education_level, grade, ai_output (JSONField: summary, roadmap, flashcards, quiz) |
+| `Document` | user (FK), title, source_type (text/youtube/pdf), source_url, raw_content, education_level, grade, ai_output (JSONField: summary, roadmap, flashcards, resources, exam), summary_html |
 | `ChatMessage` | document (FK), role (user/assistant), content |
+| `UserActivity` | user (FK), active_date (unik per user/hari) — dasar hitung hari streak |
 
-Relasi: `User 1—1 Profile`, `User 1—N Document`, `Document 1—N ChatMessage`.
+Relasi: `User 1—1 Profile`, `User 1—N Document`, `Document 1—N ChatMessage`, `User 1—N UserActivity`.
 
 ---
 
@@ -101,10 +106,15 @@ Relasi: `User 1—1 Profile`, `User 1—N Document`, `Document 1—N ChatMessage
 /oauth/<provider>/              oauth_login_view          (mulai PKCE, redirect ke Supabase)
 /oauth/callback/                oauth_callback_view       (tukar code -> buat sesi)
 /accounts/                      Django auth (login/logout/password)
-/dashboard/                     dashboard_view            (login required)
+/dashboard/                     dashboard_view            (login required; kredit & streak)
+/preferences/                   preferences_view          (POST preferensi dari modal)
+/library/                       library_view              (daftar materi + paginasi)
+/settings/                      settings_view
 /process/                       process_content_view      (POST materi -> proses Gemini)
 /workspace/<pk>/                workspace_view            (tampilkan paket belajar)
 /workspace/<pk>/chat/           chat_api_view             (POST JSON -> jawaban AI)
+/workspace/<pk>/summary/        summary_save_api_view     (POST JSON -> simpan edit rangkuman)
+/workspace/<pk>/exam/generate/  exam_generate_api_view    (POST -> generate 20 soal)
 /workspace/<pk>/delete/         delete_document_view
 ```
 
@@ -115,12 +125,14 @@ Relasi: `User 1—1 Profile`, `User 1—N Document`, `Document 1—N ChatMessage
   (tanpa `client_id`, pakai `scopes`) -> callback tukar `code` -> buat `User` lokal -> login.
 
 ### 5.3 Alur Proses Materi (core/services.py: `build_learning_kit`)
-1. View menerima input dari `StudyKitForm` (teks / URL YouTube / upload PDF, jumlah flashcard & quiz,
-   learning_style, education_level, grade).
-2. Ekstrak konten: `extract_youtube_transcript()` atau `extract_pdf_text()` (pypdf).
+1. View menerima input dari `StudyKitForm` (teks / URL YouTube / upload PDF, jumlah flashcard,
+   learning_style, education_level, grade). Field `num_quiz` sudah DIPINDAHKAN dari form.
+2. Ekstrak konten: `extract_youtube_transcript()` (pakai API instance `.list()`; lihat catatan v1.2.4)
+   atau `extract_pdf_text()` (pypdf).
 3. Simpan `Document` (raw_content + metadata).
 4. Panggil Gemini sekali untuk membuat `ai_output` berisi:
-   `summary` (markdown), `roadmap` (steps), `flashcards`, `quiz`.
+   `summary` (markdown), `roadmap` (steps), `flashcards`, `resources`.
+   `exam` (20 soal pilihan ganda) DIBUAT TERPISAH via `/workspace/<pk>/exam/generate/`.
 5. `_parse_json` memastikan output AI valid (fallback struktural jika JSON tidak bersih).
 
 ### 5.4 Chat dengan Dokumen (`chat_with_document`)
@@ -133,6 +145,24 @@ Relasi: `User 1—1 Profile`, `User 1—N Document`, `Document 1—N ChatMessage
 - **Anki CSV:** `Ayok.downloadAnkiCSV` -> Blob CSV ber-BOM UTF-8.
 - **Cetak PDF:** `window.print()` + CSS `no-print`.
 
+### 5.6 Simulasi Ujian (`exam`)
+- 20 soal pilihan ganda, dibuat AI **sesaat diminta** lewat `/workspace/<pk>/exam/generate/`
+  (bukan saat generate materi) — karena itu kredit & proses materi tidak menunggu soal ujian.
+- Item soal: `{question, options[4], correctAnswer (int 0-3), explanation}`.
+- Pengaturan waktu: 30 menit di client (`app.js` `examEngine`); lulus bila skor ≥ 70%.
+
+### 5.7 Kredit & Streak
+- **Kredit bulanan:** `FREE_MONTHLY_DOCUMENT_LIMIT` (default 3) dikurangi jumlah dokumen bulan
+  berjalan; sisa ditampilkan di dashboard.
+- **Streak:** dihitung dari `UserActivity` (hari aktif beruntun), dicatat saat user membuka dashboard.
+- Implementasi: `core/models.py` (`UserActivity.streak_for`, `record_if_new`) + `_dashboard_context`.
+
+### 5.8 Loading State
+- **Generate materi** (dashboard): overlay progress bar + persentase (palsu/indikasi, karena submit
+  full-page POST).
+- **Simulasi ujian** (workspace): skeleton loader menyerupai layout soal.
+- Pedoman selengkapnya di `rules.md`.
+
 ---
 
 ## 6. Konfigurasi `.env` (RAHASIA — jangan commit)
@@ -144,6 +174,8 @@ File yang dibaca: **`C:\yok\ayokbelajar_proj\.env`** (bukan `C:\yok\.env` yang s
 | `SECRET_KEY` | Django secret |
 | `GOOGLE_API_KEY` | key Gemini (NYATA) |
 | `GEMINI_MODEL` | **`gemini-flash-latest`** (jangan pakai `gemini-1.5-flash`, tidak tersedia) |
+| `GEMINI_FALLBACK_MODELS` | daftar model cadangan dipisah koma; default `gemini-2.5-flash,gemini-2.5-flash-lite` (dipakai saat model aktif 429/5xx atau tidak tersedia) |
+| `FREE_MONTHLY_DOCUMENT_LIMIT` | kuota kredit study kit per bulan (default `3`) |
 | `SUPABASE_URL` | base URL Supabase project |
 | `SUPABASE_ANON_KEY` | anon key |
 | `SUPABASE_CLIENT_ID` | client_id OAuth Google terdaftar di Supabase |
@@ -163,6 +195,13 @@ File yang dibaca: **`C:\yok\ayokbelajar_proj\.env`** (bukan `C:\yok\.env` yang s
 | 5 | DB config error | `DATABASE_URL` dikosongkan; struktur `DATABASES` if/elif/else + import `sys` | `.env`, `settings.py` |
 | 6 | OAuth Google/GitHub ditolak | `authorize_url` pakai `scopes`, tanpa `client_id`/`response_type`; client_id asli dipakai via Supabase config | `core/supabase_auth.py` |
 | 7 | Nav login vs anonim | Sidebar (kiri) untuk login; top navbar untuk anonim | `base.html` |
+| 8 | Generate materi error 400 (skema quiz) | `quiz` dihapus dari skema & diganti `exam` (20 soal, generate terpisah); frontend pakai `correctAnswer` | `services.py`, `workspace.html`, `app.js` |
+| 9 | Rangkuman tak bisa diedit (format) | Ganti Quill → `contenteditable` + `document.execCommand` (toolbar `.rt-toolbar`), simpan HTML ke `Document.summary_html` | `workspace.html`, `app.js`, `views.py` |
+| 10 | "Layanan AI sedang ramai" (429/5xx) | Retry 5× + delay eksponensial + jitter; fallback multi-model (`GEMINI_FALLBACK_MODELS`) | `services.py`, `settings.py` |
+| 11 | Model fallback `gemini-2.0-flash` sudah tidak ada (404) | Ganti default ke `gemini-2.5-flash,gemini-2.5-flash-lite`; APIError 404/400 dianggap "model tidak tersedia" → lanjut model berikut | `settings.py`, `services.py` |
+| 12 | Statistik dashboard palsu (kredit & streak hardcoded) | Model `UserActivity` + hitung kredit bulanan nyata; tampilkan SVG (bukan emoji) | `models.py`, `views.py`, `dashboard.html` |
+| 13 | Aksesibilitas & konsistensi UI | `skip-link`, `focus-visible`, emoji struktural → SVG hemat, copy quiz→simulasi ujian | `base.html`, semua template |
+| 14 | `YouTubeTranscriptApi.list_transcripts` error (API v1.2.4) | Tidak pakai classmethod lama; gunakan **instance** `YouTubeTranscriptApi().list(video_id)` | `services.py` |
 
 ---
 
@@ -172,7 +211,7 @@ File yang dibaca: **`C:\yok\ayokbelajar_proj\.env`** (bukan `C:\yok\.env` yang s
 cd C:\yok\ayokbelajar_proj
 python manage.py check          # health check
 python manage.py migrate        # pastikan migrasi terpasang
-python manage.py test core      # 27 unit test — semua PASS
+python manage.py test core      # 64 unit test — semua PASS
 python manage.py runserver      # dev di http://localhost:8000
 ```
 
@@ -185,7 +224,9 @@ Verifikasi manual setelah perubahan: login, proses materi (3 sumber), buka works
 - **Supabase Redirect URL:** `http://localhost:8000/oauth/callback/` harus didaftarkan di
   Supabase Dashboard → Authentication → URL Configuration → Redirect URLs, jika tidak OAuth gagal.
 - `python manage.py collectstatic` hanya untuk produksi; ada warning `staticfiles/` belum ada di dev — wajar.
-- **Belum dikerjakan:** uji end-to-end chat & OAuth; integrasi Supabase PostgreSQL/RLS produksi;
-  paginasi daftar dokumen.
+- **jangan regresi:** jangan kembalikan pemanggilan YouTube ke `YouTubeTranscriptApi.list_transcripts()` —
+  API itu dihapus di `youtube-transcript-api` 1.2.4; gunakan instance `.list()`.
+- **Belum dikerjakan:** integrasi Supabase PostgreSQL/RLS produksi; payment/upgrade paket (harga di
+  landing hanya mock); uji end-to-end OAuth pada env non-lokal; dark mode (sengaja ditunda).
 - Baca `AGENTS.md` di `C:\yok` untuk aturan koding yang wajib dipatuhi (Django 5.x, minimal perubahan,
-  test wajib, no hardcode secret).
+  test wajib, no hardcode secret). Pedoman UI: `rules.md` di root proyek.

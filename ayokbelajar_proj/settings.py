@@ -35,11 +35,19 @@ ALLOWED_HOSTS = [h for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').sp
 
 # Google Gemini
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', '')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-flash-latest')
+GEMINI_FALLBACK_MODELS = [
+    m.strip()
+    for m in os.getenv('GEMINI_FALLBACK_MODELS', 'gemini-2.5-flash,gemini-2.5-flash-lite').split(',')
+    if m.strip()
+]
 
 # Supabase Auth
 SUPABASE_URL = os.getenv('SUPABASE_URL', '')
 SUPABASE_ANON_KEY = os.getenv('SUPABASE_ANON_KEY', '')
+
+# Paket Free: jumlah study kit (dokumen) yang bisa dibuat per bulan
+FREE_MONTHLY_DOCUMENT_LIMIT = int(os.getenv('FREE_MONTHLY_DOCUMENT_LIMIT', '3'))
 
 
 # Application definition

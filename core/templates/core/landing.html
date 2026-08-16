@@ -31,14 +31,14 @@
       <div>
         <p class="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
           <span class="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden="true"></span>
-          Didukung Gemini 1.5 Flash
+          Didukung AI canggih
         </p>
         <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
           Ubah Teks, PDF, &amp; YouTube Jadi<br class="hidden sm:block">
           <span class="text-primary">Kit Belajar Interaktif</span>
         </h1>
         <p class="mt-5 max-w-xl text-lg text-slate-500">
-          Tempel materi, unggah PDF, atau bagikan link YouTube — dalam hitungan detik dapatkan rangkuman, peta belajar, flashcard, dan quiz dalam satu kali proses.
+          Tempel materi, unggah PDF, atau bagikan link YouTube — dalam hitungan detik dapatkan rangkuman, peta belajar, flashcard, dan simulasi ujian dalam satu kali proses.
         </p>
         <div class="mt-8 flex flex-wrap gap-3">
           {% if user.is_authenticated %}
@@ -63,14 +63,14 @@
               <span class="h-3 w-3 rounded-full bg-amber-400"></span>
               <span class="h-3 w-3 rounded-full bg-emerald-400"></span>
             </div>
-            <span class="text-xs font-medium text-slate-400">workspace / ringkasan</span>
+            <span class="text-xs font-medium text-slate-400">workspace / rangkuman</span>
           </div>
           <div class="mt-4 space-y-3">
             <div class="flex gap-2">
               <span class="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">Rangkuman</span>
               <span class="cursor-pointer rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-primary">Peta Belajar</span>
               <span class="cursor-pointer rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">Flashcard</span>
-              <span class="cursor-pointer rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">Quiz</span>
+              <span class="cursor-pointer rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">Simulasi Ujian</span>
             </div>
             <div class="space-y-2 rounded-lg bg-slate-50 p-4">
               <div class="h-3 w-3/4 rounded bg-slate-300"></div>
@@ -94,7 +94,7 @@
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
             </span>
             <div>
-              <p class="text-sm font-semibold text-slate-900">Skor Quiz: 8/8</p>
+              <p class="text-sm font-semibold text-slate-900">Skor Simulasi: 8/8</p>
               <p class="text-xs text-slate-500">Lulus sempurna!</p>
             </div>
           </div>
@@ -115,22 +115,22 @@
         <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-primary" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" /></svg>
         </span>
-        <h3 class="mt-4 text-lg font-semibold text-slate-900">Fast AI Extraction</h3>
+        <h3 class="mt-4 text-lg font-semibold text-slate-900">Ekstraksi Cepat</h3>
         <p class="mt-2 text-sm text-slate-500">Ekstrak transkrip YouTube, teks PDF, atau input mentah secara instan tanpa menonton video.</p>
       </div>
       <div class="rounded-xl border border-slate-200 p-6 transition-colors duration-200 hover:border-slate-300">
         <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>
         </span>
-        <h3 class="mt-4 text-lg font-semibold text-slate-900">Structured Knowledge</h3>
-        <p class="mt-2 text-sm text-slate-500">Rangkuman mendalam dan peta jalan vertikal yang dihasilkan dalam satu panggilan AI.</p>
+        <h3 class="mt-4 text-lg font-semibold text-slate-900">Pengetahuan Terstruktur</h3>
+        <p class="mt-2 text-sm text-slate-500">Rangkuman mendalam dan peta jalan vertikal yang dihasilkan dalam satu kali proses.</p>
       </div>
       <div class="rounded-xl border border-slate-200 p-6 transition-colors duration-200 hover:border-slate-300">
         <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-50 text-rose-500" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
         </span>
-        <h3 class="mt-4 text-lg font-semibold text-slate-900">Active Recall Tools</h3>
-        <p class="mt-2 text-sm text-slate-500">Flashcard putar 3D dan quiz dengan skor otomatis untuk memperkuat ingatan aktif.</p>
+        <h3 class="mt-4 text-lg font-semibold text-slate-900">Belajar Aktif</h3>
+        <p class="mt-2 text-sm text-slate-500">Flashcard putar 3D dan simulasi ujian 20 soal dengan skor otomatis untuk memperkuat ingatan.</p>
       </div>
     </div>
   </div>

@@ -1,5 +1,6 @@
 import json
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
@@ -13,8 +14,9 @@ from django.views.decorators.http import require_POST
 
 from . import supabase_auth
 from .forms import ProfilePreferencesForm, RegisterForm, SettingsForm, StudyKitForm
-from .models import ChatMessage, Document
+from .models import ChatMessage, Document, UserActivity
 from .services import (
+    build_exam,
     build_learning_kit,
     chat_with_document,
     extract_pdf_text,
@@ -109,13 +111,24 @@ def oauth_callback_view(request):
 
 def _dashboard_context(request, form=None):
     """Konfigurasi render halaman dashboard (termasuk state modal preferensi)."""
+    from django.utils import timezone
     profile = request.user.profile
+    today = timezone.now().date()
+    UserActivity.record_if_new(request.user, today)
+    docs_this_month = request.user.documents.filter(
+        created_at__year=today.year,
+        created_at__month=today.month,
+    ).count()
     return {
         'form': form or StudyKitForm(),
         'prefs_form': ProfilePreferencesForm(),
         'documents': request.user.documents.all()[:20],
         'profile': profile,
         'preferences_set': profile.preferences_set,
+        'credit_remaining': max(
+            settings.FREE_MONTHLY_DOCUMENT_LIMIT - docs_this_month, 0
+        ),
+        'streak': UserActivity.streak_for(request.user, today=today),
     }
 
 
@@ -222,7 +235,6 @@ def process_content_view(request):
             profile.education_level,
             profile.grade,
             data['num_flashcards'],
-            data['num_quiz'],
         )
 
         document = Document.objects.create(
@@ -252,7 +264,8 @@ def workspace_view(request, pk):
         'summary': output.get('summary', ''),
         'roadmap': output.get('roadmap', []),
         'flashcards': output.get('flashcards', []),
-        'quiz': output.get('quiz', []),
+        'resources': output.get('resources') or {},
+        'exam': output.get('exam') or [],
         'chat_messages': document.chat_messages.all(),
     })
 
@@ -283,12 +296,56 @@ def chat_api_view(request, pk):
             history,
             document.education_level,
             document.grade,
+            document.title,
         )
     except Exception as exc:  # noqa: BLE001
         answer = f'Maaf, terjadi kendala saat menjawab: {exc}'
 
     ChatMessage.objects.create(document=document, role='assistant', content=answer)
     return JsonResponse({'role': 'assistant', 'content': answer})
+
+
+@login_required
+@require_POST
+def summary_save_api_view(request, pk):
+    """Simpan hasil edit rangkuman (rich text editor) kembali ke dokumen."""
+    document = get_object_or_404(Document, pk=pk)
+    if document.user != request.user:
+        raise PermissionDenied
+
+    try:
+        payload = json.loads(request.body or b'{}')
+    except json.JSONDecodeError:
+        payload = {}
+    html = (payload.get('html') or '').strip()
+    if not html:
+        return JsonResponse({'error': 'Konten rangkuman tidak boleh kosong.'}, status=400)
+    if len(html) > 200_000:
+        return JsonResponse({'error': 'Konten rangkuman terlalu panjang.'}, status=400)
+
+    document.summary_html = html
+    document.save(update_fields=['summary_html'])
+    return JsonResponse({'ok': True, 'html': html})
+
+
+@login_required
+@require_POST
+def exam_generate_api_view(request, pk):
+    """Generate simulasi ujian tepat 20 soal dari materi dokumen."""
+    document = get_object_or_404(Document, pk=pk)
+    if document.user != request.user:
+        raise PermissionDenied
+
+    try:
+        questions = build_exam(document.raw_content, document.education_level, document.grade)
+    except Exception as exc:  # noqa: BLE001 - dikembalikan sebagai pesan ramah
+        return JsonResponse({'error': str(exc)}, status=400)
+
+    ai_output = dict(document.ai_output or {})
+    ai_output['exam'] = questions
+    document.ai_output = ai_output
+    document.save(update_fields=['ai_output'])
+    return JsonResponse({'ok': True, 'exam': questions})
 
 
 @login_required

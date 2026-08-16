@@ -84,12 +84,6 @@ class StudyKitForm(forms.Form):
         initial=10,
         widget=forms.NumberInput(attrs={'min': 1, 'max': 30}),
     )
-    num_quiz = forms.IntegerField(
-        min_value=3,
-        max_value=20,
-        initial=5,
-        widget=forms.NumberInput(attrs={'min': 3, 'max': 20}),
-    )
 
     def clean(self):
         cleaned = super().clean()

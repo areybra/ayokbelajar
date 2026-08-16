@@ -6,7 +6,9 @@ dalam satu panggilan AI terstruktur untuk menghasilkan learning kit.
 import json
 import re
 import time
+from typing import Literal
 
+from pydantic import BaseModel
 from django.conf import settings
 from google import genai
 from google.genai.errors import APIError
@@ -14,13 +16,14 @@ from pypdf import PdfReader
 from youtube_transcript_api import YouTubeTranscriptApi
 
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
-MAX_RETRIES = 3
-RETRY_BASE_DELAY = 2
-RETRY_MAX_DELAY = 10
+MAX_RETRIES = 5
+RETRY_BASE_DELAY = 3
+RETRY_MAX_DELAY = 30
 
 FRIENDLY_UNAVAILABLE_MSG = (
-    'Layanan AI sedang sibuk (ramai digunakan). '
-    'Silakan coba lagi dalam beberapa saat.'
+    'Layanan AI sedang sibuk (ramai digunakan) dan belum berhasil '
+    'meskipun sudah dicoba berkali-kali. Silakan tunggu 1-2 menit lalu '
+    'klik "Generate" sekali lagi.'
 )
 
 LEARNING_STYLES = {
@@ -93,34 +96,54 @@ LEARNING_KIT_SCHEMA = {
                 'required': ['question', 'answer'],
             },
         },
-        'quiz': {
-            'type': 'array',
-            'items': {
-                'type': 'object',
-                'properties': {
-                    'question': {'type': 'string'},
-                    'options': {'type': 'array', 'items': {'type': 'string'}},
-                    'correctAnswer': {'type': 'integer'},
-                    'explanation': {'type': 'string'},
+        'resources': {
+            'type': 'object',
+            'properties': {
+                'books': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'title': {'type': 'string'},
+                            'note': {'type': 'string'},
+                        },
+                        'required': ['title'],
+                    },
                 },
-                'required': ['question', 'options', 'correctAnswer', 'explanation'],
+                'articles': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'title': {'type': 'string'},
+                            'note': {'type': 'string'},
+                        },
+                        'required': ['title'],
+                    },
+                },
+                'search_query': {'type': 'string'},
             },
+            'required': ['books', 'articles', 'search_query'],
         },
     },
-    'required': ['summary', 'roadmap', 'flashcards', 'quiz'],
+    'required': ['summary', 'roadmap', 'flashcards', 'resources'],
 }
-
 
 def _get_client():
     return genai.Client(api_key=settings.GOOGLE_API_KEY)
 
 
-def _get_model():
-    return getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
+def _get_models():
+    """Daftar model Gemini untuk dicoba berurutan (utamakan yang dikonfigurasi)."""
+    primary = getattr(settings, 'GEMINI_MODEL', 'gemini-flash-latest')
+    fallback = list(getattr(settings, 'GEMINI_FALLBACK_MODELS', []) or [])
+    models = [primary] + [m for m in fallback if m and m != primary]
+    return models or ['gemini-flash-latest']
 
 
 def _call_with_retry(fn, *args, **kwargs):
-    """Panggil Gemini dengan retry/backoff untuk error sementara (429/5xx)."""
+    """Panggil Gemini dengan retry/backoff + jitter untuk error sementara (429/5xx)."""
+    import random
     last_error = None
     delay = RETRY_BASE_DELAY
     for attempt in range(MAX_RETRIES):
@@ -132,9 +155,25 @@ def _call_with_retry(fn, *args, **kwargs):
                 raise
             if attempt == MAX_RETRIES - 1:
                 raise ValueError(FRIENDLY_UNAVAILABLE_MSG)
-            time.sleep(delay)
+            time.sleep(delay * (0.5 + random.random()))
             delay = min(delay * 2, RETRY_MAX_DELAY)
     raise last_error
+
+
+def _generate_with_failover(fn, *args, **kwargs):
+    """Coba beberapa model berurutan; lanjut ke model berikut jika yang aktif sibuk."""
+    errors = []
+    for model in _get_models():
+        try:
+            return _call_with_retry(fn, *args, model=model, **kwargs)
+        except (ValueError, APIError) as exc:
+            errors.append(f'{model}: {exc}')
+            if isinstance(exc, APIError) and exc.code not in RETRYABLE_STATUS_CODES:
+                # 404 / 400 = model tidak tersedia/valid -> coba model berikutnya
+                continue
+            if isinstance(exc, ValueError):
+                continue
+    raise ValueError(FRIENDLY_UNAVAILABLE_MSG)
 
 
 # ---------------------------------------------------------------------------
@@ -147,11 +186,11 @@ def extract_youtube_transcript(url):
     if not video_id:
         raise ValueError('URL YouTube tidak valid. Gunakan format watch?v= atau youtu.be/.')
 
-    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+    transcript_list = YouTubeTranscriptApi().list(video_id)
     try:
-        transcript = transcript_list.find_transcript(['id'])
+        transcript = transcript_list.find_transcript(['id', 'en'])
     except Exception:
-        transcript = transcript_list.find_generated_transcript()
+        transcript = transcript_list.find_generated_transcript(['id', 'en'])
     parts = [item.text for item in transcript.fetch()]
     return ' '.join(parts)
 
@@ -179,8 +218,8 @@ def extract_pdf_text(pdf_file):
     return '\n'.join(parts)
 
 
-def build_learning_kit(raw_content, learning_style, education_level, grade, num_flashcards, num_quiz):
-    """Satu panggilan Gemini menghasilkan summary, roadmap, flashcards, quiz."""
+def build_learning_kit(raw_content, learning_style, education_level, grade, num_flashcards):
+    """Satu panggilan Gemini menghasilkan summary, roadmap, flashcards, resources."""
     style_prompt = LEARNING_STYLES.get(learning_style, LEARNING_STYLES['detailed'])
     level_prompt = EDUCATION_LEVELS.get(education_level, EDUCATION_LEVELS['umum'])
     grade_label = f' ({grade})' if grade else ''
@@ -188,10 +227,21 @@ def build_learning_kit(raw_content, learning_style, education_level, grade, num_
 Kamu adalah asisten pembelajaran AI bernama AyokBelajar.
 
 Berdasarkan materi di bawah, buat "learning kit" lengkap dengan struktur berikut:
-1. summary: rangkuman materi dalam format Markdown (beri heading, poin-poin penting, dan glossary istilah).
+1. summary: rangkuman materi yang LENGKAP, PADAT, dan MENDALAM dalam format Markdown. JANGAN membuat rangkuman singkat/superficial. Uraikan secara rinci namun tidak bertele-tele, dengan struktur heading & sub-heading yang jelas. Rangkuman WAJIB memuat:
+   - Pendahuluan & latar belakang konsep topik;
+   - Teori inti, definisi, istilah, dan konsep kunci;
+   - Permasalahan yang dibahas beserta solusi atau pendekatan penyelesaiannya;
+   - Prinsip, rumus, proses, dan contoh penerapan yang konkret;
+   - Kesimpulan utama;
+   - Di akhiri dengan bagian bertajuk "## Glosarium" berisi daftar istilah penting beserta penjelasan singkatnya (minimal 5 istilah).
 2. roadmap: peta belajar bertahap (3-6 langkah) berupa array objek {{step, title, detail}}.
 3. flashcards: array objek {{question, answer}} sebanyak {num_flashcards} kartu.
-4. quiz: array objek {{question, options (4 pilihan), correctAnswer (index 0-3), explanation}} sebanyak {num_quiz} soal.
+4. resources: objek {{books: [{{title, note}}], articles: [{{title, note}}], search_query}} berisi:
+   - 4 rekomendasi buku yang benar-benar relevan dengan topik,
+   - 4 rekomendasi artikel/web yang relevan,
+   - search_query: satu kalimat kunci pencarian yang efektif untuk menemukan materi lanjutan.
+   Catatan: JANGAN membuat URL asli; cukup judul sumber daya dan catatan singkat (satu kalimat) mengapa berguna.
+   Catatan tambahan tentang mind map: Jika menghasilkan diagram mermaid, HANYA keluarkan syntax Mermaid dalam format kotak putih murni tanpa tambahan markdown code block (``` mermaid ... ```), tanpa label judul tambahan, hanya blok mermaid saja.
 
 Target audiens: {education_level}{grade_label}
 {level_prompt}
@@ -199,14 +249,12 @@ Gaya belajar: {style_prompt}
 Gunakan bahasa yang sama dengan materi input.
 Pastikan seluruh output valid sebagai JSON murni tanpa teks lain.
 
-MATERI:
+MATERIAL:
 {raw_content[:200000]}
 """
-    model = _get_model()
     client = _get_client()
-    response = _call_with_retry(
+    response = _generate_with_failover(
         client.models.generate_content,
-        model=model,
         contents=prompt,
         config=genai.types.GenerateContentConfig(
             temperature=0.4,
@@ -217,7 +265,7 @@ MATERI:
     return _parse_json(response.text)
 
 
-def chat_with_document(raw_content, history, education_level='umum', grade=''):
+def chat_with_document(raw_content, history, education_level='umum', grade='', document_title=''):
     """Jawab pertanyaan dengan raw_content sebagai konteks (Zero-RAG)."""
     conversation = []
     for message in history:
@@ -229,20 +277,33 @@ def chat_with_document(raw_content, history, education_level='umum', grade=''):
 
     grade_label = f' kelas {grade}' if grade else ''
     level_prompt = EDUCATION_LEVELS.get(education_level, EDUCATION_LEVELS['umum'])
+    title_label = f'Judul dokumen: {document_title}\n\n' if document_title else ''
     system_context = (
         'Kamu adalah asisten yang menjawab pertanyaan HANYA berdasarkan materi '
         'berikut. Jika pertanyaan di luar materi, katakan tidak tersedia di materi.\n\n'
+        f'{title_label}'
         f'Target audiens: {education_level}{grade_label}. {level_prompt}\n\n'
         f'MATERI:\n{raw_content[:200000]}'
     )
 
-    model = _get_model()
     client = _get_client()
-    chat = _call_with_retry(client.chats.create, model=model, history=conversation)
-    response = _call_with_retry(
-        chat.send_message, system_context + '\n\nJawab pertanyaan terakhir dari user.'
-    )
-    return response.text
+    last_error = None
+    for model in _get_models():
+        try:
+            chat = _call_with_retry(client.chats.create, model=model, history=conversation)
+            response = _call_with_retry(
+                chat.send_message,
+                system_context + '\n\nJawab pertanyaan terakhir dari user.',
+            )
+            return response.text
+        except (ValueError, APIError) as exc:
+            last_error = exc
+            if isinstance(exc, APIError) and exc.code not in RETRYABLE_STATUS_CODES:
+                # 404 / 400 = model tidak tersedia/valid -> coba model berikutnya
+                continue
+    if isinstance(last_error, ValueError):
+        raise last_error
+    raise ValueError(FRIENDLY_UNAVAILABLE_MSG)
 
 
 def _parse_json(text):
@@ -260,3 +321,97 @@ def _parse_json(text):
         if match:
             return json.loads(match.group(0))
         raise ValueError('Respons AI bukan JSON yang valid.')
+
+
+def _validate_exam_item(item):
+    """Validasi satu soal exam (multiple_choice saja)."""
+    options = item.get('options')
+    if not options or len(options) != 4:
+        raise ValueError('Soal ujian harus memiliki 4 opsi jawaban.')
+    ca = item.get('correctAnswer')
+    if not isinstance(ca, int) or ca < 0 or ca > 3:
+        raise ValueError('correctAnswer multiple choice harus index 0-3')
+    if not item.get('question'):
+        raise ValueError('Soal ujian harus memiliki pertanyaan.')
+    if not item.get('explanation'):
+        raise ValueError('Setiap soal harus memiliki explanation')
+
+
+EXAM_TOTAL_QUESTIONS = 20
+
+
+def build_exam(raw_content, education_level='umum', grade=''):
+    """Hasilkan simulasi ujian persis 20 soal pilihan ganda (timer & skor di client)."""
+    level_prompt = EDUCATION_LEVELS.get(education_level, EDUCATION_LEVELS['umum'])
+    grade_label = f' ({grade})' if grade else ''
+    prompt = f"""
+Kamu adalah penyusun soal ujian bernama AyokBelajar.
+
+Berdasarkan materi di bawah, buat simulasi ujian PERSIS {EXAM_TOTAL_QUESTIONS} soal pilihan ganda (multiple_choice). Berikut format output JSON valid:
+{{
+  "exam": [
+    {{"question_type": "multiple_choice", "question", "options" (4 pilihan A-D), "correctAnswer" (index 0-3), "explanation"}}
+  ]
+}}
+
+Aturan penyusunan:
+- Total tepat {EXAM_TOTAL_QUESTIONS} soal pilihan ganda.
+- Setiap soal punya options TEPAT 4 opsi (A-D) dan correctAnswer berupa index 0-3.
+- Tingkat kesulitan bervariasi: mudah, sedang, sulit (proporsi ~ 4:10:6).
+- Soal menguji pemahaman konsep, bukan sekadar hafalan kalimat materi.
+- Setiap soal hanya boleh punya SATU jawaban benar yang jelas.
+- explanation berisi alasan singkat mengapa jawaban tersebut benar.
+- Target audiens: {education_level}{grade_label}
+{level_prompt}
+Gunakan bahasa yang sama dengan materi input.
+Pastikan seluruh output valid sebagai JSON murni tanpa teks lain.
+
+MATERIAL:
+{raw_content[:200000]}
+"""
+    client = _get_client()
+    response = _generate_with_failover(
+        client.models.generate_content,
+        contents=prompt,
+        config=genai.types.GenerateContentConfig(
+            temperature=0.3,
+            response_mime_type='application/json',
+            response_schema={
+                'type': 'object',
+                'properties': {
+                    'exam': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'question_type': {
+                                    'type': 'string',
+                                    'enum': ['multiple_choice'],
+                                },
+                                'question': {'type': 'string'},
+                                'options': {'type': 'array', 'items': {'type': 'string'}},
+                                'correctAnswer': {'type': 'integer'},
+                                'explanation': {'type': 'string'},
+                            },
+                            'required': ['question_type', 'question', 'options', 'correctAnswer', 'explanation'],
+                        },
+                    },
+                },
+                'required': ['exam'],
+            },
+        ),
+    )
+    data = _parse_json(response.text)
+    questions = data.get('exam') or data.get('quiz') or []
+    for item in questions:
+        _validate_exam_item(item)
+    if len(questions) > EXAM_TOTAL_QUESTIONS:
+        questions = questions[:EXAM_TOTAL_QUESTIONS]
+    if len(questions) < EXAM_TOTAL_QUESTIONS:
+        raise ValueError(
+            f'Simulasi ujian membutuhkan tepat {EXAM_TOTAL_QUESTIONS} soal, '
+            f'tetapi AI hanya menghasilkan {len(questions)}. Silakan coba generate lagi.'
+        )
+    for item in questions:
+        item['question_type'] = 'multiple_choice'
+    return questions

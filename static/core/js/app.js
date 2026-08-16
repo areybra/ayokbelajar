@@ -39,15 +39,40 @@
       window.print();
     },
 
+    renderMindmap: function () {
+      var container = document.getElementById('mindmap-container');
+      if (!container || !window.markmap || !window.markmap.autoLoader) return;
+      var summary = parseJsonScript('summary-data') || '';
+      var md = (summary ? '# Rangkuman\n\n' : '') + summary;
+      if (!summary) {
+        container.innerHTML = '';
+        return;
+      }
+      container.textContent = md;
+      container.dataset.rendered = '1';
+      // Tunggu tab terlihat (x-cloak) agar ukuran container sudah terhitung
+      // oleh CSS, sehingga markmap.fit() mengisi kotak mind map sepenuhnya.
+      setTimeout(function () {
+        window.markmap.autoLoader.render(container);
+      }, 60);
+    },
+
     parseJsonScript: parseJsonScript,
   };
 
   document.addEventListener('DOMContentLoaded', function () {
     var summaryData = parseJsonScript('summary-data');
-    if (summaryData !== null && document.getElementById('summary-content')) {
-      var markdown = String(summaryData);
-      document.getElementById('summary-content').innerHTML = marked.parse(markdown);
-      document.getElementById('summary-plain').value = markdown;
+    var savedHtml = parseJsonScript('summary-html-data');
+    var summaryContent = document.getElementById('summary-content');
+    var summaryPlain = document.getElementById('summary-plain');
+    if (summaryContent) {
+      if (savedHtml && String(savedHtml).trim()) {
+        summaryContent.innerHTML = savedHtml;
+        if (summaryPlain) summaryPlain.value = summaryData !== null ? String(summaryData) : '';
+      } else if (summaryData !== null) {
+        summaryContent.innerHTML = marked.parse(String(summaryData));
+        if (summaryPlain) summaryPlain.value = String(summaryData);
+      }
     }
 
     if (document.getElementById('roadmap-list')) {
@@ -110,65 +135,252 @@
     };
   };
 
-  window.quizEngine = function () {
-    var questions = parseJsonScript('quiz-data') || [];
+  window.summaryEditor = function () {
+    var editorEl = null;
+    var savedRange = null;
+
+    function getRange() {
+      var sel = window.getSelection();
+      if (sel.rangeCount > 0) return sel.getRangeAt(0).cloneRange();
+      return null;
+    }
+    function restoreRange() {
+      if (!savedRange || !editorEl) return;
+      editorEl.focus();
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+    }
+    function captureRange() {
+      if (editorEl && editorEl.contains(window.getSelection().anchorNode)) {
+        savedRange = getRange();
+      }
+    }
+    function exec(cmd, value) {
+      restoreRange();
+      document.execCommand(cmd, false, value || null);
+      savedRange = getRange();
+    }
+
+    return {
+      editing: false,
+      saving: false,
+      statusText: '',
+      initialized: false,
+      openEditor: function () {
+        if (this.editing) return;
+        this.editing = true;
+        var self2 = this;
+        this.$nextTick(function () {
+          requestAnimationFrame(function () {
+            self2.initEditor();
+          });
+        });
+      },
+      initEditor: function () {
+        if (this.initialized) return;
+        editorEl = document.getElementById('summary-editor');
+        if (!editorEl) return;
+        var savedHtml = parseJsonScript('summary-html-data') || '';
+        var summaryData = parseJsonScript('summary-data') || '';
+        var initialHtml = (savedHtml && String(savedHtml).trim())
+          ? savedHtml
+          : (summaryData ? marked.parse(String(summaryData)) : '');
+        editorEl.innerHTML = initialHtml || '';
+
+        // Tombol toolbar -> document.execCommand
+        var self2 = this;
+        document.querySelectorAll('.rt-toolbar [data-cmd]').forEach(function (btn) {
+          btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+          btn.addEventListener('click', function () {
+            var cmd = btn.getAttribute('data-cmd');
+            var val = btn.getAttribute('data-val') || undefined;
+            if (cmd === 'createLink') {
+              var url = window.prompt('Alamat URL tautan:', 'https://');
+              if (url) { restoreRange(); document.execCommand('createLink', false, url); }
+              return;
+            }
+            exec(cmd, val);
+            self2.statusText = 'Ada perubahan belum disimpan';
+          });
+        });
+        // Input warna (foreColor / hiliteColor)
+        document.querySelectorAll('.rt-toolbar input[type=color]').forEach(function (input) {
+          input.addEventListener('input', function () {
+            exec(input.getAttribute('data-cmd'), input.value);
+            self2.statusText = 'Ada perubahan belum disimpan';
+          });
+        });
+
+        editorEl.addEventListener('keyup', captureRange);
+        editorEl.addEventListener('mouseup', captureRange);
+        editorEl.addEventListener('keydown', function () {
+          self2.statusText = 'Ada perubahan belum disimpan';
+        });
+        editorEl.addEventListener('blur', captureRange);
+
+        this.initialized = true;
+        editorEl.focus();
+        var end = editorEl.textContent.trim().length;
+        try {
+          var r = document.createRange();
+          r.selectNodeContents(editorEl);
+          r.collapse(false);
+          var sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(r);
+          savedRange = r.cloneRange();
+        } catch (e) { /* abaikan */ }
+      },
+      save: function (closeAfter) {
+        var self2 = this;
+        if (!editorEl || this.saving) return;
+        var html = editorEl.innerHTML.trim();
+        if (!editorEl.textContent.trim()) {
+          this.statusText = 'Rangkuman tidak boleh kosong.';
+          return;
+        }
+        this.saving = true;
+        var wrap = editorEl.closest('[data-document-id]');
+        var docId = wrap ? wrap.dataset.documentId
+          : (document.querySelector('[data-document-id]') || {}).dataset.documentId;
+        fetch('/workspace/' + docId + '/summary/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+          body: JSON.stringify({ html: html }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data && data.ok) {
+              var content = document.getElementById('summary-content');
+              if (content) content.innerHTML = data.html;
+              var plain = document.getElementById('summary-plain');
+              if (plain) plain.value = editorEl.textContent;
+              self2.statusText = 'Tersimpan ✓';
+              if (closeAfter) self2.editing = false;
+            } else {
+              self2.statusText = (data && data.error) || 'Gagal menyimpan.';
+            }
+          })
+          .catch(function () { self2.statusText = 'Gagal terhubung. Coba lagi.'; })
+          .finally(function () { self2.saving = false; });
+      },
+      cancelEdit: function () {
+        this.editing = false;
+        this.statusText = '';
+      },
+    };
+  };
+
+  window.examEngine = function () {
+    var EXAM_MINUTES = 30;
+    var EXAM_DURATION = EXAM_MINUTES * 60;
+    var questions = parseJsonScript('exam-data') || [];
     return {
       questions: questions,
       index: 0,
-      selected: null,
-      locked: false,
-      answers: [],
-      startTime: Date.now(),
-      now: Date.now(),
+      answers: {},
+      remaining: EXAM_DURATION,
+      running: false,
       finished: false,
       review: false,
+      generating: false,
+      error: '',
       _timer: null,
-      init: function () {
-        var self = this;
-        this._timer = setInterval(function () { self.now = Date.now(); }, 1000);
-      },
-      destroy: function () {
-        if (this._timer) clearInterval(this._timer);
-      },
       get current() { return this.questions[this.index] || null; },
+      get answeredCount() { return Object.keys(this.answers).length; },
       get score() {
-        return this.answers.filter(function (a) { return a.correct; }).length;
+        var self = this;
+        return this.questions.reduce(function (acc, q, i) {
+          return acc + (self.answers[i] === q.correctAnswer ? 1 : 0);
+        }, 0);
       },
-      get percent() {
-        return this.questions.length ? Math.round((this.score / this.questions.length) * 100) : 0;
+      get percent() { return this.questions.length ? Math.round((this.score / this.questions.length) * 100) : 0; },
+      get wrongCount() { return this.questions.length - this.score - this.unansweredCount; },
+      get unansweredCount() { return this.questions.length - this.answeredCount; },
+      get mmss() {
+        var m = Math.floor(this.remaining / 60);
+        var s = this.remaining % 60;
+        return m + ':' + String(s).padStart(2, '0');
       },
-      get elapsed() {
-        return Math.round((this.now - this.startTime) / 1000);
+      get timeUsedLabel() {
+        var used = EXAM_DURATION - this.remaining;
+        var m = Math.floor(used / 60);
+        var s = used % 60;
+        return m + ' menit ' + s + ' detik';
+      },
+      generate: function () {
+        var self = this;
+        this.generating = true;
+        this.error = '';
+        var docId = document.querySelector('[data-document-id]').dataset.documentId;
+        fetch('/workspace/' + docId + '/exam/generate/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data && data.ok && data.exam) {
+              self.questions = data.exam;
+              self.start();
+            } else {
+              self.error = (data && data.error) || 'Gagal generate ujian.';
+            }
+          })
+          .catch(function () { self.error = 'Gagal terhubung. Coba lagi.'; })
+          .finally(function () { self.generating = false; });
+      },
+      start: function () {
+        var self = this;
+        this.answers = {};
+        this.index = 0;
+        this.finished = false;
+        this.review = false;
+        this.remaining = EXAM_DURATION;
+        this.running = true;
+        if (this._timer) clearInterval(this._timer);
+        this._timer = setInterval(function () {
+          self.remaining--;
+          if (self.remaining <= 0) {
+            self.remaining = 0;
+            self.finish();
+          }
+        }, 1000);
       },
       choose: function (i) {
-        if (this.locked) return;
-        this.selected = i;
-        this.locked = true;
-        this.answers[this.index] = { chosen: i, correct: i === this.current.correctAnswer };
+        if (!this.running || this.finished) return;
+        this.answers[this.index] = i;
       },
-      next: function () {
-        this.index++;
-        this.selected = null;
-        this.locked = false;
-        if (this.index >= this.questions.length) {
-          this.finished = true;
-          if (this._timer) { clearInterval(this._timer); this._timer = null; }
-        }
+      go: function (i) {
+        if (i < 0 || i >= this.questions.length) return;
+        this.index = i;
       },
-      reset: function () {
-        this.index = 0; this.selected = null; this.locked = false;
-        this.answers = []; this.startTime = Date.now(); this.now = Date.now();
-        this.finished = false; this.review = false;
-        if (!this._timer) {
-          var self = this;
-          this._timer = setInterval(function () { self.now = Date.now(); }, 1000);
-        }
+      submit: function () {
+        this.finish();
       },
-      missed: function () {
-        var self = this;
-        return this.questions.filter(function (_, i) {
-          return !self.answers[i] || !self.answers[i].correct;
-        });
+      finish: function () {
+        if (this._timer) { clearInterval(this._timer); this._timer = null; }
+        this.running = false;
+        this.finished = true;
+        this.review = false;
+      },
+      answerStatus: function (i) {
+        if (this.answers[i] === undefined) return 'unanswered';
+        return this.answers[i] === this.questions[i].correctAnswer ? 'correct' : 'wrong';
+      },
+    };
+  };
+
+  window.resourcesPanel = function () {
+    return {
+      search: function (query, engine) {
+        var q = encodeURIComponent(query || '');
+        var url = engine === 'youtube'
+          ? 'https://www.youtube.com/results?search_query=' + q
+          : engine === 'books'
+          ? 'https://www.google.com/search?tbm=bks&q=' + q
+          : 'https://www.google.com/search?q=' + q;
+        window.open(url, '_blank', 'noopener noreferrer');
       },
     };
   };

@@ -16,5 +16,7 @@ urlpatterns = [
     path('process/', views.process_content_view, name='process'),
     path('workspace/<int:pk>/', views.workspace_view, name='workspace'),
     path('workspace/<int:pk>/chat/', views.chat_api_view, name='chat'),
+    path('workspace/<int:pk>/summary/', views.summary_save_api_view, name='summary_save'),
+    path('workspace/<int:pk>/exam/generate/', views.exam_generate_api_view, name='exam_generate'),
     path('workspace/<int:pk>/delete/', views.delete_document_view, name='delete'),
 ]

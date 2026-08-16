@@ -6,12 +6,13 @@ from django.test import TestCase
 from django.urls import reverse
 from google.genai.errors import APIError
 
-from .models import ChatMessage, Document, Profile
+from .models import ChatMessage, Document, Profile, UserActivity
 from .services import (
     FRIENDLY_UNAVAILABLE_MSG,
     _call_with_retry,
     _parse_json,
     _parse_youtube_id,
+    build_exam,
     build_learning_kit,
     chat_with_document,
 )
@@ -20,13 +21,23 @@ KIT_FIXTURE = {
     'summary': '# Ringkasan',
     'roadmap': [{'step': 1, 'title': 'Mulai', 'detail': 'Definisi'}],
     'flashcards': [{'question': 'Apa X?', 'answer': 'X adalah Y'}],
-    'quiz': [{
-        'question': 'Pilihan?',
+    'resources': {
+        'books': [{'title': 'Buku X', 'note': 'Bagus untuk pemula.'}],
+        'articles': [{'title': 'Artikel Y', 'note': 'Penjelasan visual.'}],
+        'search_query': 'teori X untuk pemula',
+    },
+}
+
+EXAM_FIXTURE = [
+    {
+        'question_type': 'multiple_choice',
+        'question': f'Soal {i}',
         'options': ['A', 'B', 'C', 'D'],
         'correctAnswer': 0,
         'explanation': 'Karena A.',
-    }],
-}
+    }
+    for i in range(20)
+]
 
 
 class ProfileSignalTests(TestCase):
@@ -77,7 +88,7 @@ class ServiceTests(TestCase):
         fake = mock.Mock()
         fake.text = json.dumps(KIT_FIXTURE)
         mock_client.return_value.models.generate_content.return_value = fake
-        result = build_learning_kit('materi', 'detailed', 'sma', '10', 10, 5)
+        result = build_learning_kit('materi', 'detailed', 'sma', '10', 10)
         self.assertEqual(result['flashcards'][0]['question'], 'Apa X?')
         mock_client.return_value.models.generate_content.assert_called_once()
 
@@ -96,7 +107,7 @@ class ServiceTests(TestCase):
         with self.assertRaises(ValueError) as ctx:
             _call_with_retry(fn)
         self.assertEqual(str(ctx.exception), FRIENDLY_UNAVAILABLE_MSG)
-        self.assertEqual(fn.call_count, 3)
+        self.assertEqual(fn.call_count, 5)
 
     def test_call_with_retry_does_not_retry_non_retryable_error(self):
         fn = mock.Mock(side_effect=APIError(400, {'error': {'code': 400}}))
@@ -109,7 +120,7 @@ class ServiceTests(TestCase):
         fake = mock.Mock()
         fake.text = json.dumps(KIT_FIXTURE)
         mock_client.return_value.models.generate_content.return_value = fake
-        build_learning_kit('materi', 'visual', 'sma', '10', 5, 3)
+        build_learning_kit('materi', 'visual', 'sma', '10', 5)
         kwargs = mock_client.return_value.models.generate_content.call_args
         prompt = kwargs.kwargs['contents']
         self.assertIn('Target audiens: sma (10)', prompt)
@@ -123,6 +134,15 @@ class ServiceTests(TestCase):
         self.assertEqual(result, 'Jawaban')
         sent = chat.send_message.call_args.args[0]
         self.assertIn('Target audiens: smp kelas 8', sent)
+
+    @mock.patch('core.services._get_client')
+    def test_chat_with_document_injects_document_title(self, mock_client):
+        chat = mock_client.return_value.chats.create.return_value
+        chat.send_message.return_value.text = 'Jawaban'
+        result = chat_with_document('materi', [], 'smp', '8', 'Biologi Kelas 8')
+        self.assertEqual(result, 'Jawaban')
+        sent = chat.send_message.call_args.args[0]
+        self.assertIn('Judul dokumen: Biologi Kelas 8', sent)
 
     @mock.patch('core.services._get_client')
     def test_chat_with_document_builds_part_dicts_for_history(self, mock_client):
@@ -141,6 +161,35 @@ class ServiceTests(TestCase):
             {'role': 'user', 'parts': [{'text': 'Pertanyaan?'}]},
         ]
         self.assertEqual(kwargs['history'], expected)
+
+    @mock.patch('core.services._get_client')
+    def test_build_exam_returns_exactly_20_questions(self, mock_client):
+        fake = mock.Mock()
+        fake.text = json.dumps({'exam': EXAM_FIXTURE})
+        mock_client.return_value.models.generate_content.return_value = fake
+        result = build_exam('materi', 'sma', '10')
+        self.assertEqual(len(result), 20)
+        self.assertEqual(result[0]['question'], 'Soal 0')
+        kwargs = mock_client.return_value.models.generate_content.call_args
+        self.assertIn('Target audiens: sma (10)', kwargs.kwargs['contents'])
+        self.assertIn('PERSIS 20 soal', kwargs.kwargs['contents'])
+
+    @mock.patch('core.services._get_client')
+    def test_build_exam_truncates_when_more_than_20(self, mock_client):
+        too_many = EXAM_FIXTURE + [EXAM_FIXTURE[0]]
+        fake = mock.Mock()
+        fake.text = json.dumps({'exam': too_many})
+        mock_client.return_value.models.generate_content.return_value = fake
+        self.assertEqual(len(build_exam('materi', 'sma', '10')), 20)
+
+    @mock.patch('core.services._get_client')
+    def test_build_exam_raises_when_fewer_than_20(self, mock_client):
+        fake = mock.Mock()
+        fake.text = json.dumps({'exam': EXAM_FIXTURE[:5]})
+        mock_client.return_value.models.generate_content.return_value = fake
+        with self.assertRaises(ValueError) as ctx:
+            build_exam('materi', 'sma', '10')
+        self.assertIn('tepat 20 soal', str(ctx.exception))
 
 
 class ViewTests(TestCase):
@@ -185,7 +234,6 @@ class ViewTests(TestCase):
             'sma',
             '10',
             5,
-            3,
         )
 
     def test_process_invalid_form_shows_errors(self):
@@ -206,6 +254,16 @@ class ViewTests(TestCase):
         response = self.client.get(reverse('core:workspace', kwargs={'pk': doc.pk}))
         self.assertEqual(response.status_code, 403)
 
+    def test_workspace_flashcard_flip_uses_flipped_state(self):
+        doc = Document.objects.create(
+            user=self.user, title='M', source_type='text', raw_content='x',
+            ai_output=KIT_FIXTURE,
+        )
+        response = self.client.get(reverse('core:workspace', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '@click="flipped = !flipped"')
+        self.assertNotContains(response, '@click="flip = !flip"')
+
     @mock.patch('core.views.chat_with_document', return_value='Jawaban AI')
     def test_chat_api_saves_messages(self, mock_chat):
         doc = Document.objects.create(
@@ -220,7 +278,108 @@ class ViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['content'], 'Jawaban AI')
         self.assertEqual(ChatMessage.objects.filter(document=doc).count(), 2)
-        mock_chat.assert_called_once_with('x', mock.ANY, 'sma', '10')
+        mock_chat.assert_called_once_with('x', mock.ANY, 'sma', '10', 'M')
+
+    def test_workspace_renders_new_feature_sections(self):
+        doc = Document.objects.create(
+            user=self.user, title='M', source_type='text', raw_content='x',
+            ai_output=KIT_FIXTURE,
+        )
+        response = self.client.get(reverse('core:workspace', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Mind Map')
+        self.assertContains(response, 'Simulasi Ujian')
+        self.assertContains(response, 'Sumber Belajar')
+        self.assertContains(response, 'Edit Rangkuman')
+
+    def test_workspace_passes_resources_and_exam(self):
+        output = dict(KIT_FIXTURE)
+        output['exam'] = EXAM_FIXTURE
+        doc = Document.objects.create(
+            user=self.user, title='M', source_type='text', raw_content='x',
+            ai_output=output,
+        )
+        response = self.client.get(reverse('core:workspace', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['exam']), 20)
+        self.assertEqual(response.context['resources']['search_query'], 'teori X untuk pemula')
+
+    def test_summary_save_api_persists_html(self):
+        doc = Document.objects.create(
+            user=self.user, title='M', source_type='text', raw_content='x',
+            ai_output=KIT_FIXTURE,
+        )
+        response = self.client.post(
+            reverse('core:summary_save', kwargs={'pk': doc.pk}),
+            data=json.dumps({'html': '<p>Rangkuman baru</p><p>Kedua</p>'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        doc.refresh_from_db()
+        self.assertEqual(doc.summary_html, '<p>Rangkuman baru</p><p>Kedua</p>')
+
+    def test_summary_save_api_rejects_empty(self):
+        doc = Document.objects.create(
+            user=self.user, title='M', source_type='text', raw_content='x',
+            ai_output=KIT_FIXTURE,
+        )
+        response = self.client.post(
+            reverse('core:summary_save', kwargs={'pk': doc.pk}),
+            data=json.dumps({'html': '   '}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+        doc.refresh_from_db()
+        self.assertEqual(doc.summary_html, '')
+
+    def test_summary_save_api_ownership_denied(self):
+        other = User.objects.create_user('bob', password='pass')
+        doc = Document.objects.create(
+            user=other, title='M', source_type='text', raw_content='x',
+            ai_output=KIT_FIXTURE,
+        )
+        response = self.client.post(
+            reverse('core:summary_save', kwargs={'pk': doc.pk}),
+            data=json.dumps({'html': '<p>x</p>'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 403)
+
+    @mock.patch('core.views.build_exam', return_value=EXAM_FIXTURE)
+    def test_exam_generate_api_creates_and_saves_exam(self, mock_exam):
+        doc = Document.objects.create(
+            user=self.user, title='M', source_type='text', raw_content='materi',
+            ai_output=KIT_FIXTURE, education_level='sma', grade='10',
+        )
+        response = self.client.post(reverse('core:exam_generate', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()['exam']), 20)
+        doc.refresh_from_db()
+        self.assertEqual(doc.ai_output['exam'], EXAM_FIXTURE)
+        mock_exam.assert_called_once_with('materi', 'sma', '10')
+
+    @mock.patch('core.views.build_exam',
+                side_effect=ValueError('tepat 20 soal tetapi AI menghasilkan 5.'))
+    def test_exam_generate_api_returns_error_json(self, _mock_exam):
+        doc = Document.objects.create(
+            user=self.user, title='M', source_type='text', raw_content='materi',
+            ai_output=KIT_FIXTURE,
+        )
+        response = self.client.post(reverse('core:exam_generate', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('tepat 20 soal', response.json()['error'])
+        doc.refresh_from_db()
+        self.assertNotIn('exam', doc.ai_output)
+
+    def test_exam_generate_api_ownership_denied(self):
+        other = User.objects.create_user('bob', password='pass')
+        doc = Document.objects.create(
+            user=other, title='M', source_type='text', raw_content='x',
+            ai_output=KIT_FIXTURE,
+        )
+        response = self.client.post(reverse('core:exam_generate', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 403)
 
 
 class LibraryAndSettingsViewTests(TestCase):
@@ -446,6 +605,64 @@ class PreferencesViewTests(TestCase):
         response = self.client.get(reverse('core:dashboard'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'x-data="dashboardPage(true)"')
+
+
+class UserActivityTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='streak@example.com', password='x')
+
+    def test_streak_counting_consecutive_days(self):
+        from datetime import date, timedelta
+        today = date(2026, 8, 15)
+        for offset in range(3):
+            UserActivity.objects.create(
+                user=self.user, active_date=today - timedelta(days=offset)
+            )
+        self.assertEqual(UserActivity.streak_for(self.user, today=today), 3)
+
+    def test_streak_breaks_on_gap(self):
+        from datetime import date, timedelta
+        today = date(2026, 8, 15)
+        for offset in (0, 1, 3, 4):
+            UserActivity.objects.create(
+                user=self.user, active_date=today - timedelta(days=offset)
+            )
+        self.assertEqual(UserActivity.streak_for(self.user, today=today), 2)
+
+    def test_streak_zero_when_no_activity(self):
+        from datetime import date
+        self.assertEqual(UserActivity.streak_for(self.user, today=date(2026, 8, 15)), 0)
+
+    def test_record_if_new_is_idempotent(self):
+        from datetime import date
+        UserActivity.record_if_new(self.user, date(2026, 8, 15))
+        UserActivity.record_if_new(self.user, date(2026, 8, 15))
+        self.assertEqual(UserActivity.objects.filter(user=self.user).count(), 1)
+
+    def test_dashboard_credit_reflects_current_month(self):
+        from datetime import date, timedelta
+        from django.utils import timezone
+        from ayokbelajar_proj import settings
+        today = timezone.now().date()
+        month_start = today.replace(day=1)
+        Document.objects.create(
+            user=self.user, title='A', source_type='text', raw_content='x',
+            ai_output={}, created_at=month_start + timedelta(days=4)
+        )
+        Document.objects.create(
+            user=self.user, title='B', source_type='text', raw_content='y',
+            ai_output={}, created_at=month_start + timedelta(days=5)
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context['credit_remaining'],
+            max(settings.FREE_MONTHLY_DOCUMENT_LIMIT - 2, 0),
+        )
+        self.assertEqual(
+            response.context['documents'].count(), 2
+        )
 
 
 class OAuthViewTests(TestCase):
