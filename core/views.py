@@ -121,7 +121,7 @@ def _dashboard_context(request, form=None):
         created_at__month=today.month,
     ).count()
     return {
-        'form': form or StudyKitForm(),
+        'form': form or StudyKitForm(initial={'language': profile.language}),
         'prefs_form': ProfilePreferencesForm(),
         'documents': request.user.documents.all()[:20],
         'profile': profile,
@@ -230,12 +230,14 @@ def process_content_view(request):
         # Default jumlah kartu belajar acak 5-10 jika tidak dispecifikasi
         num_flashcards = data.get('num_flashcards') or randint(5, 10)
 
+        language = data.get('language') or profile.language
         ai_output = build_learning_kit(
             raw_content,
             data.get('learning_style') or profile.learning_style,
             profile.education_level,
             profile.grade,
             num_flashcards,
+            language,
         )
 
         document = Document.objects.create(
@@ -246,8 +248,12 @@ def process_content_view(request):
             raw_content=raw_content,
             education_level=profile.education_level,
             grade=profile.grade,
+            language=language,
             ai_output=ai_output,
         )
+        if profile.language != language:
+            profile.language = language
+            profile.save(update_fields=['language'])
         return redirect(reverse('core:workspace', kwargs={'pk': document.pk}))
     except Exception as exc:  # noqa: BLE001 - tampilkan pesan ramah
         form.add_error(None, f'Gagal memproses materi: {exc}')
@@ -308,6 +314,7 @@ def chat_api_view(request, pk):
             document.education_level,
             document.grade,
             document.title,
+            document.language,
         )
     except Exception as exc:  # noqa: BLE001
         answer = f'Maaf, terjadi kendala saat menjawab: {exc}'
@@ -348,7 +355,7 @@ def practice_generate_api_view(request, pk):
         raise PermissionDenied
 
     try:
-        questions = build_exam(document.raw_content, document.education_level, document.grade)
+        questions = build_exam(document.raw_content, document.education_level, document.grade, document.language)
     except Exception as exc:  # noqa: BLE001 - dikembalikan sebagai pesan ramah
         return JsonResponse({'error': str(exc)}, status=400)
 

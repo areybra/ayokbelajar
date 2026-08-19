@@ -23,6 +23,35 @@
   }
 
   window.Ayok = {
+    theme: {
+      STORAGE_KEY: 'ayok-theme',
+      getMode: function () {
+        try {
+          var stored = localStorage.getItem('ayok-theme');
+          if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
+        } catch (e) { /* localStorage tidak tersedia */ }
+        return 'system';
+      },
+      isDark: function () {
+        var mode = this.getMode();
+        if (mode === 'dark') return true;
+        if (mode === 'light') return false;
+        return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      },
+      apply: function () {
+        document.documentElement.classList.toggle('dark', this.isDark());
+        syncThemeIcons();
+      },
+      set: function (mode) {
+        if (mode !== 'light' && mode !== 'dark' && mode !== 'system') return;
+        try { localStorage.setItem('ayok-theme', mode); } catch (e) { /* abaikan */ }
+        this.apply();
+      },
+      toggle: function () {
+        this.set(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+      },
+    },
+
     downloadMarkdown: function (text, filename) {
       downloadBlob(text, filename || 'ringkasan.md', 'text/markdown');
     },
@@ -35,8 +64,103 @@
       downloadBlob('\ufeff' + 'Question,Answer\n' + rows.join('\n'), filename || 'flashcards.csv', 'text/csv');
     },
 
+    downloadKit: function (filename, title) {
+      var parts = [];
+      parts.push('# ' + (title || 'Paket Belajar AyokBelajar'));
+      parts.push('');
+
+      var plainEl = document.getElementById('summary-plain');
+      var summary = plainEl && String(plainEl.value).trim()
+        ? plainEl.value
+        : (parseJsonScript('summary-data') || '');
+      if (summary) {
+        parts.push('## Rangkuman');
+        parts.push('');
+        parts.push(String(summary));
+        parts.push('');
+      }
+
+      var roadmap = parseJsonScript('roadmap-data') || [];
+      if (roadmap.length) {
+        parts.push('## Peta Belajar');
+        parts.push('');
+        roadmap.forEach(function (s) {
+          parts.push((s.step || '') + '. **' + (s.title || '') + '**' + (s.detail ? ' — ' + s.detail : ''));
+        });
+        parts.push('');
+      }
+
+      var cards = parseJsonScript('flashcards-data') || [];
+      if (cards.length) {
+        parts.push('## Kartu Belajar');
+        parts.push('');
+        cards.forEach(function (c, i) {
+          parts.push((i + 1) + '. **Q:** ' + (c.question || ''));
+          parts.push('   **A:** ' + (c.answer || ''));
+        });
+        parts.push('');
+      }
+
+      var resources = parseJsonScript('resources-data') || {};
+      if (resources.search_query || (resources.books || []).length || (resources.articles || []).length) {
+        parts.push('## Sumber Belajar');
+        parts.push('');
+        if (resources.search_query) parts.push('Kata kunci pencarian: `' + resources.search_query + '`');
+        if ((resources.books || []).length) {
+          parts.push('');
+          parts.push('### Buku Rekomendasi');
+          resources.books.forEach(function (b) {
+            parts.push('- ' + (b.title || '') + (b.note ? ' — ' + b.note : ''));
+          });
+        }
+        if ((resources.articles || []).length) {
+          parts.push('');
+          parts.push('### Artikel Rekomendasi');
+          resources.articles.forEach(function (a) {
+            parts.push('- ' + (a.title || '') + (a.note ? ' — ' + a.note : ''));
+          });
+        }
+        parts.push('');
+      }
+
+      var exam = parseJsonScript('exam-data') || [];
+      if (exam.length) {
+        parts.push('## Latihan Soal (' + exam.length + ' soal)');
+        parts.push('');
+        exam.forEach(function (q, i) {
+          parts.push((i + 1) + '. ' + (q.question || ''));
+          (q.options || []).forEach(function (opt, j) {
+            parts.push('   ' + String.fromCharCode(65 + j) + '. ' + opt);
+          });
+          parts.push('   **Kunci:** ' + String.fromCharCode(65 + (q.correctAnswer || 0)) + ' — ' + (q.explanation || ''));
+        });
+        parts.push('');
+      }
+
+      downloadBlob(parts.join('\n'), filename || 'paket-belajar.md', 'text/markdown');
+    },
+
+    downloadExam: function (exam, filename, title) {
+      var parts = [];
+      parts.push('# ' + (title || 'Latihan Soal'));
+      parts.push('');
+      (exam || []).forEach(function (q, i) {
+        parts.push((i + 1) + '. ' + (q.question || ''));
+        (q.options || []).forEach(function (opt, j) {
+          parts.push('   ' + String.fromCharCode(65 + j) + '. ' + opt);
+        });
+        parts.push('   **Kunci:** ' + String.fromCharCode(65 + (q.correctAnswer || 0)) + ' — ' + (q.explanation || ''));
+        parts.push('');
+      });
+      downloadBlob(parts.join('\n'), filename || 'latihan-soal.md', 'text/markdown');
+    },
+
     printView: function () {
+      var html = document.documentElement;
+      var wasDark = html.classList.contains('dark');
+      if (wasDark) html.classList.remove('dark');
       window.print();
+      if (wasDark) html.classList.add('dark');
     },
 
     renderMindmap: function () {
@@ -60,7 +184,29 @@
     parseJsonScript: parseJsonScript,
   };
 
+  function syncThemeIcons() {
+    var dark = document.documentElement.classList.contains('dark');
+    document.querySelectorAll('.js-theme-icon-sun').forEach(function (el) {
+      el.classList.toggle('hidden', !dark);
+    });
+    document.querySelectorAll('.js-theme-icon-moon').forEach(function (el) {
+      el.classList.toggle('hidden', dark);
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
+    syncThemeIcons();
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+        try {
+          if (!localStorage.getItem('ayok-theme') || localStorage.getItem('ayok-theme') === 'system') {
+            document.documentElement.classList.toggle('dark', e.matches);
+            syncThemeIcons();
+          }
+        } catch (err) { /* abaikan */ }
+      });
+    }
+
     var summaryData = parseJsonScript('summary-data');
     var savedHtml = parseJsonScript('summary-html-data');
     var summaryContent = document.getElementById('summary-content');
@@ -78,6 +224,10 @@
     if (document.getElementById('roadmap-list')) {
       initRoadmap();
     }
+
+    document.querySelectorAll('#chat-box .chat-md').forEach(function (el) {
+      el.innerHTML = renderMarkdown(el.textContent);
+    });
   });
 
   function initRoadmap() {
@@ -114,13 +264,33 @@
 
   window.flashcardDeck = function () {
     var cards = parseJsonScript('flashcards-data') || [];
+    var docId = (document.querySelector('[data-document-id]') || {}).dataset.documentId;
+    var storageKey = 'ayok-flashcards-' + docId;
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch (e) { saved = {}; }
+    var mastered = new Set((saved.mastered || []).filter(function (i) {
+      return Number.isInteger(i) && i >= 0 && i < cards.length;
+    }));
+
+    function persist() {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify({ mastered: Array.from(mastered) }));
+      } catch (e) { /* localStorage tidak tersedia: status hanya untuk sesi ini */ }
+    }
+
     return {
       cards: cards,
       index: 0,
       flipped: false,
       gridMode: false,
-      mastered: new Set(),
+      mastered: mastered,
       get current() { return this.cards[this.index] || null; },
+      get isCurrentMastered() { return this.mastered.has(this.index); },
+      get masteredCount() { return this.mastered.size; },
+      get pendingCount() { return this.cards.length - this.mastered.size; },
+      get masteredPercent() {
+        return this.cards.length ? Math.round((this.mastered.size / this.cards.length) * 100) : 0;
+      },
       flip: function () { this.flipped = !this.flipped; },
       next: function () {
         if (this.index < this.cards.length - 1) { this.index++; this.flipped = false; }
@@ -128,9 +298,30 @@
       prev: function () {
         if (this.index > 0) { this.index--; this.flipped = false; }
       },
+      isMastered: function (i) { return this.mastered.has(i); },
       rate: function (ok) {
-        if (ok) this.mastered.add(this.index);
-        else this.mastered.delete(this.index);
+        this.rateIndex(this.index, ok);
+      },
+      rateIndex: function (i, ok) {
+        if (i < 0 || i >= this.cards.length) return;
+        if (ok) this.mastered.add(i);
+        else this.mastered.delete(i);
+        persist();
+        this.flipped = false;
+      },
+      nextPending: function () {
+        if (this.pendingCount === 0) return;
+        for (var steps = 1; steps <= this.cards.length; steps++) {
+          var i = (this.index + steps) % this.cards.length;
+          if (!this.mastered.has(i)) { this.index = i; this.flipped = false; return; }
+        }
+      },
+      reset: function () {
+        if (!window.confirm('Ulangi semua kartu sebagai "Masih Belajar"? Status mahir akan dihapus.')) return;
+        this.mastered.clear();
+        persist();
+        this.index = 0;
+        this.flipped = false;
       },
     };
   };
@@ -469,6 +660,45 @@
     };
   };
 
+  window.exportPanel = function (slug) {
+    return {
+      open: false,
+      slug: slug || 'materi',
+      get hasExam() {
+        return (parseJsonScript('exam-data') || []).length > 0;
+      },
+      exportAll: function (kind) {
+        this.open = false;
+        var slug = this.slug;
+        if (kind === 'markdown') {
+          var el = document.getElementById('summary-plain');
+          var text = el && String(el.value).trim()
+            ? el.value
+            : (parseJsonScript('summary-data') || '');
+          Ayok.downloadMarkdown(text, slug + '.md');
+        } else if (kind === 'anki') {
+          Ayok.downloadAnkiCSV(parseJsonScript('flashcards-data') || [], slug + '.csv');
+        } else if (kind === 'kit') {
+          Ayok.downloadKit(slug + '-paket.md', document.title);
+        } else if (kind === 'exam') {
+          Ayok.downloadExam(parseJsonScript('exam-data') || [], slug + '-latihan.md', 'Latihan Soal');
+        } else if (kind === 'print') {
+          Ayok.printView();
+        }
+      },
+    };
+  };
+
+  window.themePicker = function () {
+    return {
+      mode: window.Ayok.theme.getMode(),
+      choose: function (mode) {
+        window.Ayok.theme.set(mode);
+        this.mode = mode;
+      },
+    };
+  };
+
   window.chatPanel = function () {
     return {
       open: false,
@@ -485,6 +715,24 @@
         box.insertAdjacentHTML('beforeend', messageBubble('user', text));
         box.scrollTop = box.scrollHeight;
 
+        var typing = document.createElement('div');
+        typing.className = 'flex justify-start';
+        typing.setAttribute('role', 'status');
+        typing.setAttribute('aria-label', 'AI sedang mengetik...');
+        typing.innerHTML = '<div class="flex items-center gap-1 rounded-2xl bg-white px-4 py-3 shadow-sm">' +
+          '<span class="typing-dot h-2 w-2 rounded-full bg-slate-400"></span>' +
+          '<span class="typing-dot h-2 w-2 rounded-full bg-slate-400" style="animation-delay:0.15s"></span>' +
+          '<span class="typing-dot h-2 w-2 rounded-full bg-slate-400" style="animation-delay:0.3s"></span>' +
+          '</div>';
+        box.appendChild(typing);
+        box.scrollTop = box.scrollHeight;
+
+        function replaceWithBubble(content) {
+          if (typing.parentNode) typing.parentNode.removeChild(typing);
+          box.insertAdjacentHTML('beforeend', messageBubble('assistant', content));
+          box.scrollTop = box.scrollHeight;
+        }
+
         var docId = document.getElementById('chat-panel').dataset.documentId;
         fetch('/workspace/' + docId + '/chat/', {
           method: 'POST',
@@ -493,11 +741,10 @@
         })
           .then(function (r) { return r.json(); })
           .then(function (data) {
-            box.insertAdjacentHTML('beforeend', messageBubble('assistant', data.content || 'Tidak ada jawaban.'));
-            box.scrollTop = box.scrollHeight;
+            replaceWithBubble(data.content || 'Tidak ada jawaban.');
           })
           .catch(function () {
-            box.insertAdjacentHTML('beforeend', messageBubble('assistant', 'Gagal terhubung. Coba lagi.'));
+            replaceWithBubble('Gagal terhubung. Coba lagi.');
           })
           .finally(function () { self.sending = false; });
       },
@@ -506,10 +753,19 @@
 
   function messageBubble(role, text) {
     var isUser = role === 'user';
+    var bubbleClass = 'max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ' +
+      (isUser ? 'bg-primary text-white whitespace-pre-wrap' : 'chat-md summary-prose bg-white text-slate-800 shadow-sm');
+    var inner = isUser ? escapeHtml(text) : renderMarkdown(text);
     return '<div class="flex ' + (isUser ? 'justify-end' : 'justify-start') + '">' +
-      '<div class="max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm ' +
-      (isUser ? 'bg-primary text-white' : 'bg-slate-100 text-slate-800') + '">' +
-      escapeHtml(text) + '</div></div>';
+      '<div class="' + bubbleClass + '">' + inner + '</div></div>';
+  }
+
+  function renderMarkdown(text) {
+    var html = marked.parse(String(text || ''));
+    if (window.DOMPurify) {
+      return DOMPurify.sanitize(html);
+    }
+    return html;
   }
 
   function escapeHtml(text) {

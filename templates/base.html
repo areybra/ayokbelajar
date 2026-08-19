@@ -7,30 +7,42 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           colors: {
             primary: {
-              DEFAULT: '#4F46E5',
-              hover: '#4338CA',
+              DEFAULT: '#0D9488',
+              hover: '#0F766E',
             },
             accent: '#10B981',
             danger: '#F43F5E',
           },
           fontFamily: {
-            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
           },
         },
       },
     };
   </script>
+  <script>
+    /* Tema: dibaca di awal untuk mencegah kedipan (FOUC) sebelum CSS selesai. */
+    (function () {
+      var stored = null;
+      try { stored = localStorage.getItem('ayok-theme'); } catch (e) {}
+      var dark = stored === 'dark'
+        || (stored !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (dark) document.documentElement.classList.add('dark');
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@15.0.4/marked.min.js"></script>
-  <script src="{% static 'core/js/app.js' %}?v=6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+  <script src="{% static 'core/js/app.js' %}?v=10"></script>
   <script>
     function profilePrefs(initialLevel, initialGrade) {
       return {
@@ -55,11 +67,24 @@
       .no-print { display: none !important; }
       .print-area { display: block !important; }
       body { background: white; }
+      /* Cetak selalu terang walau tema gelap aktif (mis. Ctrl+P langsung) */
+      html.dark body,
+      html.dark .bg-white, html.dark .bg-white\/90, html.dark .bg-white\/95,
+      html.dark .bg-slate-50, html.dark .bg-slate-100,
+      html.dark .bg-teal-50, html.dark .bg-emerald-50, html.dark .bg-rose-50 {
+        background-color: white !important;
+      }
+      html.dark .text-slate-900, html.dark .text-slate-800,
+      html.dark .text-slate-700, html.dark .text-slate-600,
+      html.dark .text-slate-500, html.dark .summary-prose { color: #0f172a !important; }
+      html.dark .border-slate-200, html.dark .border-slate-100,
+      html.dark .border-slate-300, html.dark .border-teal-100,
+      html.dark .border-teal-100\/70 { border-color: #e2e8f0 !important; }
     }
     .tab-active {
       border-bottom-width: 2px;
-      border-color: #4F46E5;
-      color: #4F46E5;
+      border-color: #0D9488;
+      color: #0D9488;
       font-weight: 600;
     }
     .skeleton {
@@ -84,7 +109,7 @@
       left: 0.75rem;
       top: -100%;
       z-index: 60;
-      background: #4F46E5;
+      background: #0D9488;
       color: #fff;
       font-size: 0.875rem;
       font-weight: 600;
@@ -101,21 +126,144 @@
     textarea:focus-visible,
     select:focus-visible,
     [tabindex]:focus-visible {
-      outline: 2px solid #4F46E5;
+      outline: 2px solid #0D9488;
       outline-offset: 2px;
     }
+
+    /* ==== Motion (anti-kaku, tetap hormati reduced-motion) ==== */
+    @keyframes fade-in-up {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes float-slow {
+      0%, 100% { transform: translateY(0) translateX(0); }
+      50% { transform: translateY(-16px) translateX(10px); }
+    }
+    @keyframes typing-dot {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+      30% { transform: translateY(-4px); opacity: 1; }
+    }
+    .anim-fade-in-up { animation: fade-in-up 0.5s ease-out both; }
+    .anim-float-slow { animation: float-slow 7s ease-in-out infinite; }
+    .typing-dot { animation: typing-dot 1.2s ease-in-out infinite; }
+
+    /* Entrance reveal: pure CSS (no JS dependency) sehingga konten tidak pernah
+       tersembunyi permanen. Stagger memakai inline `animation-delay`. */
+    .reveal { animation: fade-in-up 0.55s ease-out both; }
+
     @media (prefers-reduced-motion: reduce) {
       * { transition: none !important; animation: none !important; }
     }
+
+    /* ============================================================
+       DARK MODE (kelas .dark di <html>)
+       Override utilitas Tailwind agar selaras token di rules.md.
+       Pendekatan: override global agar tak perlu mengubah tiap elemen,
+       plus utilitas `dark:` untuk kasus khusus.
+       ============================================================ */
+    html { color-scheme: light; }
+    html.dark { color-scheme: dark; }
+    html.dark body { background-color: #020617; }
+
+    /* Surfaces */
+    html.dark .bg-white { background-color: #0f172a; }
+    html.dark .bg-white\/90 { background-color: rgb(15 23 42 / 0.9); }
+    html.dark .bg-white\/95 { background-color: rgb(15 23 42 / 0.95); }
+    html.dark .bg-slate-50 { background-color: #1e293b; }
+    html.dark .bg-slate-50\/60 { background-color: rgb(30 41 59 / 0.6); }
+    html.dark .bg-slate-50\/40 { background-color: rgb(30 41 59 / 0.4); }
+    html.dark .bg-slate-100 { background-color: #334155; }
+    html.dark .bg-slate-200 { background-color: #475569; }
+    html.dark .bg-slate-300 { background-color: #64748b; }
+
+    html.dark .bg-teal-50 { background-color: rgb(13 148 136 / 0.16); }
+    html.dark .bg-teal-100 { background-color: rgb(13 148 136 / 0.24); }
+    html.dark .bg-emerald-50 { background-color: rgb(16 185 129 / 0.16); }
+    html.dark .bg-emerald-100 { background-color: rgb(16 185 129 / 0.24); }
+    html.dark .bg-emerald-50\/40 { background-color: rgb(16 185 129 / 0.12); }
+    html.dark .bg-rose-50 { background-color: rgb(244 63 94 / 0.16); }
+    html.dark .bg-rose-100 { background-color: rgb(244 63 94 / 0.24); }
+    html.dark .bg-amber-50 { background-color: rgb(245 158 11 / 0.16); }
+
+    /* Text (kontras minimal slate-500 versi terang -> slate-400 di gelap) */
+    html.dark .text-slate-900 { color: #f1f5f9; }
+    html.dark .text-slate-800 { color: #e2e8f0; }
+    html.dark .text-slate-700 { color: #cbd5e1; }
+    html.dark .text-slate-600 { color: #cbd5e1; }
+    html.dark .text-slate-500 { color: #94a3b8; }
+    html.dark .text-slate-400 { color: #64748b; }
+    html.dark .text-teal-700 { color: #5eead4; }
+    html.dark .text-teal-600 { color: #2dd4bf; }
+    html.dark .text-teal-200 { color: #99f6e4; }
+    html.dark .text-emerald-700 { color: #6ee7b7; }
+    html.dark .text-emerald-600 { color: #34d399; }
+    html.dark .text-rose-500 { color: #fb7185; }
+    html.dark .text-rose-600 { color: #fb7185; }
+    html.dark .text-amber-800 { color: #fcd34d; }
+    html.dark .text-primary { color: #2dd4bf; }
+
+    /* Borders */
+    html.dark .border-slate-200 { border-color: #334155; }
+    html.dark .border-slate-100 { border-color: #1e293b; }
+    html.dark .border-slate-300 { border-color: #475569; }
+    html.dark .border-slate-200\/70 { border-color: rgb(51 65 85 / 0.7); }
+    html.dark .border-slate-100\/70 { border-color: rgb(30 41 59 / 0.7); }
+    html.dark .border-teal-100 { border-color: rgb(45 212 191 / 0.22); }
+    html.dark .border-teal-100\/70 { border-color: rgb(45 212 191 / 0.18); }
+    html.dark .border-teal-200 { border-color: rgb(45 212 191 / 0.32); }
+    html.dark .border-emerald-200 { border-color: rgb(16 185 129 / 0.32); }
+    html.dark .border-rose-200 { border-color: rgb(244 63 94 / 0.32); }
+    html.dark .border-amber-200 { border-color: rgb(245 158 11 / 0.32); }
+
+    /* Hover / focus-visible states */
+    html.dark .hover\:bg-slate-50:hover { background-color: #1e293b; }
+    html.dark .hover\:bg-slate-100:hover { background-color: #334155; }
+    html.dark .hover\:bg-slate-200:hover { background-color: #475569; }
+    html.dark .hover\:bg-teal-100:hover { background-color: rgb(13 148 136 / 0.3); }
+    html.dark .hover\:bg-rose-50:hover { background-color: rgb(244 63 94 / 0.16); }
+    html.dark .hover\:border-slate-300:hover { border-color: #475569; }
+    html.dark .hover\:border-slate-400:hover { border-color: #64748b; }
+    html.dark .hover\:border-teal-200:hover { border-color: rgb(45 212 191 / 0.32); }
+    html.dark .hover\:border-emerald-400:hover { border-color: #34d399; }
+    html.dark .hover\:text-slate-800:hover { color: #e2e8f0; }
+    html.dark .hover\:text-slate-700:hover { color: #cbd5e1; }
+    html.dark .hover\:text-slate-600:hover { color: #cbd5e1; }
+    html.dark .hover\:text-rose-500:hover { color: #fb7185; }
+    html.dark .hover\:text-rose-600:hover { color: #fb7185; }
+    html.dark .hover\:text-primary-hover:hover { color: #5eead4; }
+    html.dark .group:hover .group-hover\:text-primary { color: #2dd4bf; }
+
+    /* Disabled & file input */
+    html.dark .disabled\:bg-slate-50:disabled { background-color: rgb(30 41 59 / 0.6); }
+    html.dark .file\:bg-teal-50::file-selector-button { background-color: rgb(13 148 136 / 0.16); }
+    html.dark .file\:hover\:bg-teal-100::file-selector-button:hover { background-color: rgb(13 148 136 / 0.3); }
+    html.dark .file\:text-teal-700::file-selector-button { color: #5eead4; }
+
+    /* Shadows bernuansa teal -> netral gelap */
+    html.dark .shadow-teal-100\/40 { box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5); }
+    html.dark .shadow-teal-100\/30 { box-shadow: 0 24px 48px -12px rgb(0 0 0 / 0.6); }
+    html.dark .hover\:shadow-teal-100\/40:hover { --tw-shadow-color: rgb(0 0 0 / 0.6); }
+
+    /* Gradient tint teal */
+    html.dark .from-white { --tw-gradient-from: #0f172a; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgb(15 23 42 / 0)); }
+    html.dark .to-teal-50\/40 { --tw-gradient-to: rgb(13 148 136 / 0.12); }
+    html.dark .to-teal-50 { --tw-gradient-to: rgb(13 148 136 / 0.12); }
+
+    /* Elemen khusus aplikasi */
+    html.dark .tab-active { color: #2dd4bf; border-color: #2dd4bf; }
+    html.dark .skeleton { background-color: #334155; }
+    html.dark .skeleton::after { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent); }
+    html.dark #mindmap-container { background: #0f172a; }
+    html.dark #mindmap-container svg text { fill: #e2e8f0; }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
-<body class="h-full bg-slate-50 text-slate-900 antialiased">
+<body class="h-full bg-teal-50/60 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
   <a href="#main-content" class="no-print skip-link">Langsung ke konten</a>
   {% block body %}
   <div class="min-h-screen">
     {% if user.is_authenticated %}
-    <div class="no-print sticky top-0 z-40 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
+    <div class="no-print sticky top-0 z-40 flex items-center justify-between border-b border-teal-100 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
       <a href="{% url 'core:dashboard' %}" class="flex items-center gap-2 text-lg font-bold text-slate-900">
         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5">
@@ -124,52 +272,58 @@
         </span>
         AyokBelajar
       </a>
-      <form method="post" action="{% url 'logout' %}">
-        {% csrf_token %}
-        <button type="submit"
-                class="cursor-pointer rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-200">Keluar</button>
-      </form>
+      <div class="flex items-center gap-2">
+        {% include '_theme_toggle.html' %}
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button type="submit"
+                  class="cursor-pointer rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-200">Keluar</button>
+        </form>
+      </div>
     </div>
-    <aside class="no-print fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
-      <a href="{% url 'core:dashboard' %}" class="flex items-center gap-2 px-5 py-4 text-lg font-bold text-slate-900">
-        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white" aria-hidden="true">
+    <aside class="no-print fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-teal-100 bg-white/95 backdrop-blur lg:flex">
+      <a href="{% url 'core:dashboard' %}" class="flex items-center gap-2.5 px-6 py-5 text-lg font-bold text-slate-900">
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white shadow-sm" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" />
           </svg>
         </span>
         AyokBelajar
       </a>
-      <nav class="flex-1 space-y-1 px-3 py-4" aria-label="Navigasi utama">
+      <nav class="flex-1 space-y-1 px-4 py-5" aria-label="Navigasi utama">
         <a href="{% url 'core:dashboard' %}"
-           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 {% if request.resolution_match.url_name == 'dashboard' %}bg-indigo-50 text-primary{% else %}text-slate-500 hover:bg-slate-100 hover:text-slate-800{% endif %}">
+           class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200 {% if request.resolution_match.url_name == 'dashboard' %}bg-teal-50 font-semibold text-teal-700{% else %}text-slate-500 hover:bg-slate-100 hover:text-slate-800{% endif %}">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5 shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" /></svg>
           Dashboard
         </a>
         <a href="{% url 'core:library' %}"
-           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 {% if request.resolution_match.url_name == 'library' %}bg-indigo-50 text-primary{% else %}text-slate-500 hover:bg-slate-100 hover:text-slate-800{% endif %}">
+           class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200 {% if request.resolution_match.url_name == 'library' %}bg-teal-50 font-semibold text-teal-700{% else %}text-slate-500 hover:bg-slate-100 hover:text-slate-800{% endif %}">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5 shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
           Library Materi
         </a>
         <a href="{% url 'core:settings' %}"
-           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 {% if request.resolution_match.url_name == 'settings' %}bg-indigo-50 text-primary{% else %}text-slate-500 hover:bg-slate-100 hover:text-slate-800{% endif %}">
+           class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200 {% if request.resolution_match.url_name == 'settings' %}bg-teal-50 font-semibold text-teal-700{% else %}text-slate-500 hover:bg-slate-100 hover:text-slate-800{% endif %}">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5 shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
           Settings Akun
         </a>
       </nav>
-      <div class="px-3 pb-4">
-        <form method="post" action="{% url 'logout' %}">
-          {% csrf_token %}
-          <button type="submit"
-                  class="w-full cursor-pointer rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-200">Keluar</button>
-        </form>
+      <div class="space-y-2 px-4 pb-5">
+        <div class="flex items-center gap-2">
+          {% include '_theme_toggle.html' %}
+          <form method="post" action="{% url 'logout' %}" class="flex-1">
+            {% csrf_token %}
+            <button type="submit"
+                    class="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors duration-200 hover:border-slate-300 hover:bg-slate-50">Keluar</button>
+          </form>
+        </div>
       </div>
     </aside>
     <div class="lg:pl-64">
     {% else %}
-    <nav class="no-print sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <nav class="no-print sticky top-0 z-40 border-b border-teal-100 bg-white/90 backdrop-blur">
       <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         <a href="{% url 'core:landing' %}" class="flex items-center gap-2 text-lg font-bold text-slate-900">
-          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white" aria-hidden="true">
+          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white shadow-sm" aria-hidden="true">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" />
             </svg>
@@ -177,18 +331,30 @@
           AyokBelajar
         </a>
         <div class="flex items-center gap-2">
+          {% include '_theme_toggle.html' %}
           <a href="{% url 'login' %}" class="cursor-pointer rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition-colors duration-200 hover:text-slate-800">Masuk</a>
-          <a href="{% url 'core:register' %}" class="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">Mulai Gratis</a>
+          <a href="{% url 'core:register' %}" class="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-primary-hover active:scale-[0.98]">Mulai Gratis</a>
         </div>
       </div>
     </nav>
     {% endif %}
 
-    <main id="main-content" class="{% if user.is_authenticated %}px-4 py-6 sm:px-6 lg:px-10{% else %}mx-auto max-w-7xl px-4 py-8 sm:px-6{% endif %}">
+    <main id="main-content" class="{% if user.is_authenticated %}mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-10{% else %}mx-auto max-w-7xl px-4 py-8 sm:px-6{% endif %}">
       {% if messages %}
         <div class="mb-6 space-y-2">
           {% for message in messages %}
-            <div class="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-700">{{ message }}</div>
+            {% with tag=message.tags|default:'info' %}
+            <div class="flex items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-sm {% if tag == 'error' %}border-rose-200 bg-rose-50 text-rose-700{% elif tag == 'warning' %}border-amber-200 bg-amber-50 text-amber-800{% elif tag == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-teal-100 bg-teal-50 text-teal-800{% endif %}">
+              <span class="mt-0.5 shrink-0" aria-hidden="true">
+                {% if tag == 'error' %}
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                {% else %}
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                {% endif %}
+              </span>
+              <span>{{ message }}</span>
+            </div>
+            {% endwith %}
           {% endfor %}
         </div>
       {% endif %}
@@ -198,7 +364,7 @@
     {% if user.is_authenticated %}
     </div>
     {% else %}
-    <footer class="no-print border-t border-slate-200 bg-white">
+    <footer class="no-print border-t border-teal-100 bg-white">
       <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-6 text-sm text-slate-500 sm:flex-row sm:px-6">
         <span>© {% now "Y" %} AyokBelajar — Ubah materi jadi kit belajar interaktif.</span>
         <span class="flex items-center gap-1">

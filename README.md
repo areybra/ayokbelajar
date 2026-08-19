@@ -27,8 +27,8 @@ semuanya dihasilkan oleh **Google Gemini API**. Plus **chat dengan dokumen** unt
 | AI | Google Gemini (`google-genai`), fallback multi-model |
 | UI | Django Templates + Tailwind CSS + Alpine.js + HTMX |
 | Auth | Supabase Auth (email/password, Google, GitHub) |
-| Database | SQLite (dev) → Supabase PostgreSQL + RLS (produksi) |
-| Server | gunicorn + whitenoise (static files) |
+ | Database | SQLite (dev) → MySQL 8.x (produksi) |
+ | Server | gunicorn + whitenoise (static files) |
 
 ## Cara Kerja
 
@@ -44,6 +44,7 @@ semuanya dihasilkan oleh **Google Gemini API**. Plus **chat dengan dokumen** unt
 - Git
 - API key **Google Gemini** (`GOOGLE_API_KEY`)
 - (Opsional) Supabase project untuk Auth, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
+- (Opsional) MySQL server 8.x bila deploy ke produksi (lihat [Deployment](#deployment))
 
 ## Setup Development
 
@@ -83,7 +84,7 @@ Buka `http://localhost:8000`.
 | `SUPABASE_ANON_KEY` | Anon/public key Supabase |
 | `SUPABASE_CLIENT_ID` | OAuth client id Google (opsional) |
 | `SUPABASE_GITHUB_CLIENT_ID` | OAuth client id GitHub (opsional) |
-| `DATABASE_URL` | Kosongkan untuk SQLite dev; isi untuk PostgreSQL |
+| `DATABASE_URL` | Kosongkan untuk SQLite dev; isi URL MySQL produksi, mis. `mysql://user:pass@host:3306/dbname`. Engine dipilih otomatis (mysql/postgres/sqlite). |
 | `DEBUG` | `True` saat development |
 | `ALLOWED_HOSTS` | Host yang diizinkan |
 
@@ -99,19 +100,35 @@ python manage.py test core    # unit test
 
 ## Deployment
 
-### Docker
+Proyek didesain deploy tanpa Docker (1 proses web + layanan eksternal). Gunakan
+platform PaaS yang mendukung buildpack/Python (Render, Railway, Heroku) atau VPS.
 
-```bash
-docker build -t ayokbelajar .
-docker run -d -p 8000:8000 --env-file .env ayokbelajar
-```
+### MySQL (produksi)
 
-### Manual (gunicorn)
+1. Sediakan **MySQL server 8.x** (mis. managed database dari Railway / Aiven /
+   provider PaaS, atau pasang di VPS). Engine dipilih otomatis dari skema URL.
+2. Beri satu variabel `DATABASE_URL`, misalnya:
+   ```bash
+   DATABASE_URL=mysql://user:password@db-host:3306/nama_database
+   ```
+3. Pasang dependensi sistem untuk `mysqlclient` (library klien MySQL):
+   - Debian/Ubuntu: `sudo apt-get install default-libmysqlclient-dev gcc pkg-config`
+   (di PaaS biasanya sudah termasuk di build environment.)
+4. Deploy:
+   ```bash
+   pip install -r requirements.txt
+   python manage.py collectstatic --noinput
+   python manage.py migrate
+   gunicorn ayokbelajar_proj.wsgi:application --bind 0.0.0.0:$PORT
+   ```
+   atau letakkan `web: gunicorn ayokbelajar_proj.wsgi:application` di `Procfile`.
 
-```bash
-python manage.py collectstatic --noinput
-gunicorn ayokbelajar_proj.wsgi:application --bind 0.0.0.0:8000
-```
+> ⚠️ Dev tetap memakai SQLite secara lokal; cukup kosongkan `DATABASE_URL`.
+
+### Docker (opsional, bila dibutuhkan)
+
+Jika ingin deploy ke VPS/Docker di masa depan, gunakan `Dockerfile` yang tersedia
+(di-commit di cabang terpisah). Untuk kebutuan ini proyek **tidak memerlukan Docker**.
 
 > Catatan OAuth dev: daftarkan `http://localhost:8000/oauth/callback/` di
 > Supabase Dashboard → Authentication → URL Configuration → Redirect URLs.
@@ -125,12 +142,11 @@ ayokbelajar_proj/
 │   ├── supabase_auth.py  # PKCE / OAuth Supabase
 │   └── templates/core/   # Template halaman (dashboard, workspace, library, dst.)
 ├── templates/            # Base layout & auth
-├── static/core/js/       # JS client (export, flashcards, ujian, chat, editor)
-├── requirements.txt      # Dependency (UTF-16 BOM)
-├── rules.md              # Pedoman UI/UX proyek
-├── Dockerfile
-├── Procfile
-└── .env                  # Rahasia — JANGAN di-commit
+ ├── static/core/js/       # JS client (export, flashcards, ujian, chat, editor)
+ ├── requirements.txt      # Dependency (UTF-8 BOM, CRLF)
+ ├── rules.md              # Pedoman UI/UX proyek
+ ├── Procfile
+ └── .env                  # Rahasia — JANGAN di-commit
 ```
 
 ## Lisensi

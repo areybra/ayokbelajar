@@ -14,6 +14,7 @@ import os
 import sys
 from pathlib import Path
 
+import dj_database_url
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -53,6 +54,7 @@ FREE_MONTHLY_DOCUMENT_LIMIT = int(os.getenv('FREE_MONTHLY_DOCUMENT_LIMIT', '3'))
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -96,7 +98,8 @@ WSGI_APPLICATION = 'ayokbelajar_proj.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-# Gunakan SQLite untuk development; override DATABASE_URL untuk PostgreSQL/Supabase.
+# Gunakan SQLite untuk development & test; override DATABASE_URL untuk produksi (MySQL/PostgreSQL).
+# dj_database_url memilih engine dari skema URL: mysql:// -> mysql, postgres:// -> postgresql.
 
 if 'test' in sys.argv:
     DATABASES = {
@@ -106,16 +109,7 @@ if 'test' in sys.argv:
         }
     }
 elif os.getenv('DATABASE_URL'):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DATABASE_NAME', 'postgres'),
-            'USER': os.getenv('DATABASE_USER', 'postgres'),
-            'PASSWORD': os.getenv('DATABASE_PASSWORD', ''),
-            'HOST': os.getenv('DATABASE_HOST', 'localhost'),
-            'PORT': os.getenv('DATABASE_PORT', '5432'),
-        }
-    }
+    DATABASES = {'default': dj_database_url.config(conn_max_age=60)}
 else:
     DATABASES = {
         'default': {
@@ -174,6 +168,97 @@ STORAGES = {
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'core:dashboard'
 LOGOUT_REDIRECT_URL = 'core:landing'
+
+# ============================================================
+# Jazzmin — tema admin (didesain agar selaras brand AyokBelajar)
+# ============================================================
+JAZZMIN_SETTINGS = {
+    'site_title': 'AyokBelajar Admin',
+    'site_header': 'AyokBelajar',
+    'site_brand': 'AyokBelajar',
+    'site_logo': 'img/ayok-logo.svg',
+    'site_logo_classes': 'elevation-2',
+    'login_logo': 'img/ayok-logo.svg',
+    'site_icon': 'img/ayok-logo.svg',
+    'welcome_sign': 'Selamat datang di panel admin AyokBelajar',
+    'copyright': 'AyokBelajar — Ubah materi jadi kit belajar interaktif',
+    'search_model': ['core.document'],
+    'show_sidebar': True,
+    'navigation_expanded': True,
+    'hide_apps': [],
+    'hide_models': [],
+    'order_with_respect_to': ['auth', 'core'],
+    'custom_links': {
+        'core': [{
+            'name': 'Buka Aplikasi',
+            'url': 'core:dashboard',
+            'icon': 'fas fa-arrow-up-right-from-square',
+            'new_window': True,
+        }],
+    },
+    'icons': {
+        'auth': 'fas fa-users-cog',
+        'auth.User': 'fas fa-user',
+        'auth.Group': 'fas fa-users',
+        'core.Profile': 'fas fa-id-card',
+        'core.Document': 'fas fa-file-lines',
+        'core.ChatMessage': 'fas fa-comments',
+        'core.PracticeSession': 'fas fa-clipboard-check',
+        'core.UserActivity': 'fas fa-calendar-check',
+    },
+    'default_icon_parents': 'fas fa-chevron-circle-right',
+    'default_icon_children': 'fas fa-circle',
+    'related_modal_active': True,
+    'changeform_format': 'horizontal_tabs',
+    'changeform_format_overrides': {
+        'auth.user': 'collapsible',
+        'auth.group': 'collapsible',
+    },
+    'topmenu_links': [
+        {'name': 'Beranda Admin', 'url': 'admin:index', 'icon': 'fas fa-house'},
+        {'name': 'Lihat Situs', 'url': 'core:landing', 'icon': 'fas fa-globe', 'new_window': True},
+    ],
+    'usermenu_links': [
+        {'name': 'Lihat Situs', 'url': 'core:landing', 'icon': 'fas fa-globe', 'new_window': True},
+    ],
+    'show_ui_builder': False,
+    'show_theme_chooser': False,
+    'language_chooser': False,
+    'custom_css': 'jazzmin/admin.css',
+    'custom_js': None,
+}
+
+JAZZMIN_UI_TWEAKS = {
+    'navbar_small_text': False,
+    'footer_small_text': False,
+    'body_small_text': False,
+    'brand_small_text': False,
+    'brand_colour': 'navbar-primary',
+    'accent': 'accent-primary',
+    'navbar': 'navbar-white navbar-light',
+    'no_navbar_border': True,
+    'navbar_fixed': True,
+    'layout_boxed': False,
+    'footer_fixed': False,
+    'sidebar_fixed': True,
+    'sidebar': 'sidebar-dark-primary',
+    'sidebar_nav_small_text': False,
+    'sidebar_disable_expand': False,
+    'sidebar_nav_child_indent': True,
+    'sidebar_nav_compact_style': False,
+    'sidebar_nav_legacy_style': False,
+    'sidebar_nav_flat_style': True,
+    'theme': 'flatly',
+    'default_theme_mode': 'auto',
+    'button_classes': {
+        'primary': 'btn-primary',
+        'secondary': 'btn-secondary',
+        'info': 'btn-info',
+        'warning': 'btn-warning',
+        'danger': 'btn-danger',
+        'success': 'btn-success',
+    },
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

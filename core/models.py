@@ -2,11 +2,18 @@ from django.conf import settings
 from django.db import models
 
 EDUCATION_LEVELS = (
-    ('umum', 'Umum/Perguruan Tinggi'),
+    ('umum', 'Umum'),
     ('sd', 'SD'),
     ('smp', 'SMP'),
     ('sma', 'SMA'),
     ('pt', 'Perguruan Tinggi'),
+)
+
+LANGUAGES = (
+    ('id', 'Bahasa Indonesia'),
+    ('en', 'English'),
+    ('ar', 'العربية'),
+    ('ms', 'Bahasa Melayu'),
 )
 
 
@@ -34,6 +41,11 @@ class Profile(models.Model):
         default='umum',
     )
     grade = models.CharField(max_length=20, blank=True, default='')
+    language = models.CharField(
+        max_length=10,
+        choices=LANGUAGES,
+        default='id',
+    )
     preferences_set = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -64,6 +76,11 @@ class Document(models.Model):
         default='umum',
     )
     grade = models.CharField(max_length=20, blank=True, default='')
+    language = models.CharField(
+        max_length=10,
+        choices=LANGUAGES,
+        default='id',
+    )
     ai_output = models.JSONField(default=dict)
     summary_html = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)

@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 
-from .models import EDUCATION_LEVELS, Document, Profile
+from .models import EDUCATION_LEVELS, LANGUAGES, Document, Profile
 
 MAX_PDF_SIZE_MB = 20
 
@@ -14,8 +14,8 @@ GRADES_BY_LEVEL = {
 }
 
 _SELECT_CLASS = (
-    'w-full cursor-pointer rounded-lg border border-slate-300 bg-white p-2.5 '
-    'focus:border-primary focus:outline-none focus:ring-2 focus:ring-indigo-500'
+    'w-full cursor-pointer rounded-xl border border-slate-200 bg-white p-2.5 '
+    'focus:border-primary focus:outline-none focus:ring-2 focus:ring-teal-500/30'
 )
 
 
@@ -79,6 +79,13 @@ class StudyKitForm(forms.Form):
         error_messages={'required': 'Gaya belajar wajib dipilih.'},
         widget=forms.Select(attrs={'class': _SELECT_CLASS}),
     )
+    language = forms.ChoiceField(
+        choices=LANGUAGES,
+        initial='id',
+        label='Bahasa output',
+        error_messages={'required': 'Bahasa wajib dipilih.'},
+        widget=forms.Select(attrs={'class': _SELECT_CLASS}),
+    )
 
     def clean(self):
         cleaned = super().clean()
@@ -133,6 +140,6 @@ class SettingsForm(ProfilePreferencesForm):
         label='Nama lengkap',
         widget=forms.TextInput(attrs={
             'autocomplete': 'name',
-            'class': 'w-full rounded-lg border border-slate-300 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-indigo-500',
+            'class': 'w-full rounded-xl border border-slate-200 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-teal-500/30',
         }),
     )

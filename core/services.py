@@ -66,6 +66,15 @@ EDUCATION_LEVELS = {
     ),
 }
 
+OUTPUT_LANGUAGES = {
+    'id': (
+        'Bahasa Indonesia (gunakan ejaan baku dan kalimat yang natural).'
+    ),
+    'en': 'English (natural, native-sounding English).',
+    'ar': 'العربية الفصحى (formal, fluent Arabic).',
+    'ms': 'Bahasa Melayu (baku, natural).',
+}
+
 LEARNING_KIT_SCHEMA = {
     'type': 'object',
     'properties': {
@@ -218,10 +227,11 @@ def extract_pdf_text(pdf_file):
     return '\n'.join(parts)
 
 
-def build_learning_kit(raw_content, learning_style, education_level, grade, num_flashcards):
+def build_learning_kit(raw_content, learning_style, education_level, grade, num_flashcards, language='id'):
     """Satu panggilan Gemini menghasilkan summary, roadmap, flashcards, resources."""
     style_prompt = LEARNING_STYLES.get(learning_style, LEARNING_STYLES['detailed'])
     level_prompt = EDUCATION_LEVELS.get(education_level, EDUCATION_LEVELS['umum'])
+    language_prompt = OUTPUT_LANGUAGES.get(language, OUTPUT_LANGUAGES['id'])
     grade_label = f' ({grade})' if grade else ''
     prompt = f"""
 Kamu adalah asisten pembelajaran AI bernama AyokBelajar.
@@ -242,7 +252,7 @@ Berdasarkan materi di bawah, buat "learning kit" lengkap dengan struktur berikut
 Target audiens: {education_level}{grade_label}
 {level_prompt}
 Gaya belajar: {style_prompt}
-Gunakan bahasa yang sama dengan materi input.
+BAHASA OUTPUT: Seluruh output WAJIB ditulis dalam {language_prompt} Terjemahkan dan tulis ulang materi ke bahasa tersebut. JANGAN mengikuti bahasa materi input bila berbeda — tetap pakai bahasa output yang diminta.
 Pastikan seluruh output valid sebagai JSON murni tanpa teks lain.
 
 MATERIAL:
@@ -261,7 +271,7 @@ MATERIAL:
     return _parse_json(response.text)
 
 
-def chat_with_document(raw_content, history, education_level='umum', grade='', document_title=''):
+def chat_with_document(raw_content, history, education_level='umum', grade='', document_title='', language='id'):
     """Jawab pertanyaan dengan raw_content sebagai konteks (Zero-RAG)."""
     conversation = []
     for message in history:
@@ -273,12 +283,30 @@ def chat_with_document(raw_content, history, education_level='umum', grade='', d
 
     grade_label = f' kelas {grade}' if grade else ''
     level_prompt = EDUCATION_LEVELS.get(education_level, EDUCATION_LEVELS['umum'])
+    language_prompt = OUTPUT_LANGUAGES.get(language, OUTPUT_LANGUAGES['id'])
     title_label = f'Judul dokumen: {document_title}\n\n' if document_title else ''
     system_context = (
-        'Kamu adalah asisten yang menjawab pertanyaan HANYA berdasarkan materi '
-        'berikut. Jika pertanyaan di luar materi, katakan tidak tersedia di materi.\n\n'
+        'Kamu adalah asisten pembelajaran bernama AyokBelajar yang membantu '
+        'memahami topik materi berikut. Gunakan materi ini sebagai sumber utama '
+        'dan acuan agar jawaban tetap relevan dengan topik.\n\n'
+        'Kamu diperbolehkan:\n'
+        '- Menjawab berdasarkan isi materi.\n'
+        '- Menjelaskan lebih lanjut dengan contoh, analogi, atau penjelasan '
+        'tambahan yang masih sejalan dengan topik, meski tidak tertulis eksplisit '
+        'di materi.\n'
+        '- Menjawab pertanyaan lanjutan yang berkaitan dengan topik (mis. variasi '
+        'soal, pendalaman konsep, atau penerapan lain) selama tetap relevan dan '
+        'membantu pemahaman.\n\n'
+        'Yang dihindari:\n'
+        '- Menyimpang jauh dari topik materi.\n'
+        '- Menjawab dengan hal yang bertentangan dengan isi materi.\n'
+        '- Menyampaikan informasi yang tidak berasal dari materi seolah-olah itu '
+        'bagian dari materi (tandai sebagai pengetahuan umum bila perlu).\n\n'
+        'Jika pertanyaan sama sekali tidak berkaitan dengan topik, beri tahu '
+        'dengan santun dan tawarkan untuk kembali ke topik materi.\n\n'
         f'{title_label}'
         f'Target audiens: {education_level}{grade_label}. {level_prompt}\n\n'
+        f'BAHASA OUTPUT: Jawab dalam {language_prompt} Jangan mengikuti bahasa pertanyaan user bila berbeda — tetap gunakan bahasa output yang diminta.\n\n'
         f'MATERI:\n{raw_content[:200000]}'
     )
 
@@ -336,9 +364,10 @@ def _validate_exam_item(item):
 EXAM_TOTAL_QUESTIONS = 20
 
 
-def build_exam(raw_content, education_level='umum', grade=''):
+def build_exam(raw_content, education_level='umum', grade='', language='id'):
     """Hasilkan latihan soal persis 20 soal pilihan ganda (timer & skor di client)."""
     level_prompt = EDUCATION_LEVELS.get(education_level, EDUCATION_LEVELS['umum'])
+    language_prompt = OUTPUT_LANGUAGES.get(language, OUTPUT_LANGUAGES['id'])
     grade_label = f' ({grade})' if grade else ''
     prompt = f"""
 Kamu adalah penyusun soal latihan bernama AyokBelajar.
@@ -359,7 +388,7 @@ Aturan penyusunan:
 - explanation berisi alasan singkat mengapa jawaban tersebut benar.
 - Target audiens: {education_level}{grade_label}
 {level_prompt}
-Gunakan bahasa yang sama dengan materi input.
+BAHASA OUTPUT: Seluruh soal, opsi, dan penjelasan WAJIB ditulis dalam {language_prompt} Jangan mengikuti bahasa materi input bila berbeda — tetap gunakan bahasa output yang diminta.
 Pastikan seluruh output valid sebagai JSON murni tanpa teks lain.
 
 MATERIAL:

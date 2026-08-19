@@ -4,12 +4,12 @@
 
 {% block content %}
 <div class="mx-auto mt-8 max-w-md">
-  <div class="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-    <h1 class="text-2xl font-bold text-slate-900">Buat akun</h1>
+  <div class="rounded-2xl border border-teal-100/70 bg-white p-8 shadow-xl shadow-teal-100/30">
+    <h1 class="text-2xl font-bold tracking-tight text-slate-900">Buat akun</h1>
     <p class="mt-1 text-sm text-slate-500">Daftar gratis dan mulai belajar lebih efektif.</p>
 
     {% if form.non_field_errors %}
-      <div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-600">
+      <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-600">
         {{ form.non_field_errors }}
       </div>
     {% endif %}
@@ -18,7 +18,7 @@
       {% csrf_token %}
 
       {% if form.errors %}
-        <div class="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-600">
+        <div class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-600">
           Periksa kembali isian di bawah.
         </div>
       {% endif %}
@@ -26,7 +26,7 @@
       <div>
         <label for="id_full_name" class="mb-1.5 block text-sm font-medium text-slate-700">Nama lengkap</label>
         <input type="text" name="full_name" id="id_full_name" value="{{ form.full_name.value|default:'' }}" autofocus required
-               class="w-full rounded-lg border border-slate-300 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-indigo-500">
+               class="w-full rounded-xl border border-slate-200 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-teal-500/30">
         {% for error in form.full_name.errors %}
           <p class="mt-1 text-xs text-rose-600">{{ error }}</p>
         {% endfor %}
@@ -35,7 +35,7 @@
       <div>
         <label for="id_email" class="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
         <input type="email" name="email" id="id_email" value="{{ form.email.value|default:'' }}" required
-               class="w-full rounded-lg border border-slate-300 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-indigo-500">
+               class="w-full rounded-xl border border-slate-200 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-teal-500/30">
         {% for error in form.email.errors %}
           <p class="mt-1 text-xs text-rose-600">{{ error }}</p>
         {% endfor %}
@@ -44,7 +44,7 @@
       <div>
         <label for="id_password1" class="mb-1.5 block text-sm font-medium text-slate-700">Password</label>
         <input type="password" name="password1" id="id_password1" required
-               class="w-full rounded-lg border border-slate-300 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-indigo-500">
+               class="w-full rounded-xl border border-slate-200 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-teal-500/30">
         {% for error in form.password1.errors %}
           <p class="mt-1 text-xs text-rose-600">{{ error }}</p>
         {% endfor %}
@@ -53,21 +53,21 @@
       <div>
         <label for="id_password2" class="mb-1.5 block text-sm font-medium text-slate-700">Konfirmasi password</label>
         <input type="password" name="password2" id="id_password2" required
-               class="w-full rounded-lg border border-slate-300 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-indigo-500">
+               class="w-full rounded-xl border border-slate-200 p-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-teal-500/30">
         {% for error in form.password2.errors %}
           <p class="mt-1 text-xs text-rose-600">{{ error }}</p>
         {% endfor %}
       </div>
 
       <button type="submit"
-              class="w-full cursor-pointer rounded-lg bg-primary py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">
+              class="w-full cursor-pointer rounded-xl bg-primary py-3 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-primary-hover active:scale-[0.98]">
         Daftar
       </button>
     </form>
 
     <p class="mt-6 text-center text-sm text-slate-500">
       Sudah punya akun?
-      <a href="{% url 'login' %}" class="font-medium text-primary hover:text-primary-hover">Masuk</a>
+      <a href="{% url 'login' %}" class="font-semibold text-primary hover:text-primary-hover">Masuk</a>
     </p>
   </div>
 </div>

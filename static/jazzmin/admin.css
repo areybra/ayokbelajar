@@ -1,0 +1,186 @@
+/* ============================================================
+   AyokBelajar Admin — Jazzmin (tema flatly)
+   Brand: teal-600 #0D9488 / hover #0F766E, font Plus Jakarta Sans.
+   Mengikuti token di rules.md (aksen teal, radius lembut, kontras aman).
+   ============================================================ */
+
+:root {
+  --bs-primary: #0D9488;
+  --bs-primary-rgb: 13, 148, 136;
+  --bs-primary-hover: #0F766E;
+  --bs-link-color: #0D9488;
+  --bs-link-hover-color: #0F766E;
+  --bs-btn-primary-bg: #0D9488;
+  --bs-btn-primary-border-color: #0D9488;
+  --bs-btn-primary-hover-bg: #0F766E;
+  --bs-btn-primary-hover-border-color: #0F766E;
+  --bs-btn-primary-active-bg: #0F766E;
+  --bs-btn-primary-active-border-color: #0F766E;
+  --bs-focus-ring-color: rgba(13, 148, 136, 0.25);
+  --bs-accordion-active-bg: rgba(13, 148, 136, 0.08);
+  --bs-accordion-active-color: #0B5D56;
+  --bs-nav-pills-link-active-bg: #0D9488;
+  --jazzmin-brand: #0D9488;
+}
+
+body,
+.brand-link,
+.dropdown-menu,
+.sidebar,
+.content-wrapper,
+.main-header,
+.main-footer,
+.form-control,
+.btn,
+.table,
+.nav-link,
+.navbar {
+  font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ---- Buttons utama konsisten teal, radius lembut ---- */
+.btn {
+  border-radius: 0.5rem;
+  font-weight: 600;
+}
+.btn-primary {
+  --bs-btn-bg: #0D9488;
+  --bs-btn-border-color: #0D9488;
+  --bs-btn-hover-bg: #0F766E;
+  --bs-btn-hover-border-color: #0F766E;
+  --bs-btn-active-bg: #0F766E;
+  --bs-btn-active-border-color: #0F766E;
+  --bs-btn-disabled-bg: #0D9488;
+  --bs-btn-disabled-border-color: #0D9488;
+}
+.btn-outline-primary {
+  --bs-btn-color: #0D9488;
+  --bs-btn-border-color: #0D9488;
+  --bs-btn-hover-bg: #0D9488;
+  --bs-btn-hover-border-color: #0D9488;
+  --bs-btn-active-bg: #0D9488;
+  --bs-btn-active-border-color: #0D9488;
+}
+.btn-light,
+.btn-outline-secondary {
+  border-radius: 0.5rem;
+}
+
+/* ---- Link & aksen ---- */
+a,
+a:focus,
+.sidebar .nav-link i,
+.text-primary {
+  color: var(--bs-link-color);
+}
+a:hover,
+a:active {
+  color: var(--bs-link-hover-color);
+}
+.page-link {
+  color: var(--bs-link-color);
+}
+.page-item.active .page-link {
+  background-color: #0D9488;
+  border-color: #0D9488;
+}
+.form-check-input:checked,
+.form-select:focus,
+.form-control:focus {
+  border-color: #0D9488;
+  box-shadow: 0 0 0 0.2rem rgba(13, 148, 136, 0.25);
+}
+.form-check-input:focus {
+  border-color: #0D9488;
+  box-shadow: 0 0 0 0.2rem rgba(13, 148, 136, 0.25);
+}
+
+/* ---- Form & kardus ---- */
+.card {
+  border-radius: 0.75rem;
+  border: 0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+.card-header {
+  border-radius: 0.75rem 0.75rem 0 0 !important;
+  background-color: #fff;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  font-weight: 600;
+}
+.form-control,
+.form-select {
+  border-radius: 0.5rem;
+}
+.breadcrumb-item.active {
+  color: #334155;
+}
+
+/* ---- Brand / sidebar ---- */
+.brand-link {
+  border-bottom: 0;
+}
+.brand-link .brand-text {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.main-sidebar .nav-sidebar .nav-link {
+  border-radius: 0.5rem;
+  margin: 0.1rem 0.4rem;
+}
+.main-sidebar .nav-sidebar .nav-item > .nav-link:hover,
+.main-sidebar .nav-sidebar .nav-item .nav-treeview .nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+.content-wrapper {
+  background-color: #f0fdfa;
+}
+
+/* ---- Login ---- */
+.login-logo .brand-text {
+  font-weight: 800;
+}
+.login-card-body {
+  border-radius: 1rem;
+}
+.auth-link,
+.auth-links-text {
+  color: var(--bs-link-color);
+}
+
+/* ---- Formulir ubah objek: rapi tanpa garis kaku ---- */
+.module .card {
+  box-shadow: none;
+  border: 1px solid #e2e8f0;
+}
+
+/* ---- Tabel ---- */
+.table thead th {
+  font-weight: 700;
+  color: #334155;
+  border-bottom-width: 2px;
+  border-bottom-color: #cbd5e1;
+}
+
+/* ============================================================
+   DARK MODE (data-bs-theme="dark") — kontras aman
+   ============================================================ */
+html[data-bs-theme='dark'] {
+  --bs-link-color: #2dd4bf;
+  --bs-link-hover-color: #5eead4;
+  --bs-primary: #2dd4bf;
+  --bs-primary-rgb: 45, 212, 191;
+}
+html[data-bs-theme='dark'] .content-wrapper {
+  background-color: #020617;
+}
+html[data-bs-theme='dark'] .card-header {
+  background-color: #0f172a;
+  border-bottom-color: #334155;
+}
+html[data-bs-theme='dark'] .table thead th {
+  color: #e2e8f0;
+  border-bottom-color: #475569;
+}
+html[data-bs-theme='dark'] .breadcrumb-item.active {
+  color: #94a3b8;
+}

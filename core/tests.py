@@ -127,6 +127,17 @@ class ServiceTests(TestCase):
         self.assertIn('Jenjang SMA', prompt)
 
     @mock.patch('core.services._get_client')
+    def test_build_learning_kit_injects_output_language(self, mock_client):
+        fake = mock.Mock()
+        fake.text = json.dumps(KIT_FIXTURE)
+        mock_client.return_value.models.generate_content.return_value = fake
+        build_learning_kit('English materi', 'detailed', 'umum', '', 5, language='id')
+        prompt = mock_client.return_value.models.generate_content.call_args.kwargs['contents']
+        self.assertIn('BAHASA OUTPUT', prompt)
+        self.assertIn('Bahasa Indonesia', prompt)
+        self.assertNotIn('Gunakan bahasa yang sama dengan materi input', prompt)
+
+    @mock.patch('core.services._get_client')
     def test_chat_with_document_injects_education_level(self, mock_client):
         chat = mock_client.return_value.chats.create.return_value
         chat.send_message.return_value.text = 'Jawaban'
@@ -143,6 +154,26 @@ class ServiceTests(TestCase):
         self.assertEqual(result, 'Jawaban')
         sent = chat.send_message.call_args.args[0]
         self.assertIn('Judul dokumen: Biologi Kelas 8', sent)
+
+    @mock.patch('core.services._get_client')
+    def test_chat_with_document_injects_output_language(self, mock_client):
+        chat = mock_client.return_value.chats.create.return_value
+        chat.send_message.return_value.text = 'Jawaban'
+        chat_with_document('english materi', [], 'smp', '8', language='id')
+        sent = chat.send_message.call_args.args[0]
+        self.assertIn('BAHASA OUTPUT', sent)
+        self.assertIn('Bahasa Indonesia', sent)
+
+    @mock.patch('core.services._get_client')
+    def test_chat_with_document_prompt_is_not_overly_strict(self, mock_client):
+        chat = mock_client.return_value.chats.create.return_value
+        chat.send_message.return_value.text = 'Jawaban'
+        chat_with_document('materi', [], 'smp', '8')
+        sent = chat.send_message.call_args.args[0]
+        self.assertNotIn('HANYA berdasarkan materi', sent)
+        self.assertNotIn('tidak tersedia di materi', sent)
+        self.assertIn('materi ini sebagai sumber utama', sent)
+        self.assertIn('masih sejalan dengan topik', sent)
 
     @mock.patch('core.services._get_client')
     def test_chat_with_document_builds_part_dicts_for_history(self, mock_client):
@@ -183,6 +214,16 @@ class ServiceTests(TestCase):
         self.assertEqual(len(build_exam('materi', 'sma', '10')), 20)
 
     @mock.patch('core.services._get_client')
+    def test_build_exam_injects_output_language(self, mock_client):
+        fake = mock.Mock()
+        fake.text = json.dumps({'exam': EXAM_FIXTURE})
+        mock_client.return_value.models.generate_content.return_value = fake
+        build_exam('english materi', 'sma', '10', language='id')
+        prompt = mock_client.return_value.models.generate_content.call_args.kwargs['contents']
+        self.assertIn('BAHASA OUTPUT', prompt)
+        self.assertIn('Bahasa Indonesia', prompt)
+
+    @mock.patch('core.services._get_client')
     def test_build_exam_raises_when_fewer_than_20(self, mock_client):
         fake = mock.Mock()
         fake.text = json.dumps({'exam': EXAM_FIXTURE[:5]})
@@ -219,6 +260,7 @@ class ViewTests(TestCase):
             'source_type': 'text',
             'raw_text': 'Isi materi yang cukup panjang untuk belajar.',
             'learning_style': 'socratic',
+            'language': 'id',
         })
         self.assertEqual(response.status_code, 302)
         doc = Document.objects.get(user=self.user)
@@ -232,6 +274,27 @@ class ViewTests(TestCase):
             'sma',
             '10',
             mock.ANY,
+            'id',
+        )
+
+    @mock.patch('core.views.build_learning_kit', return_value=KIT_FIXTURE)
+    def test_process_text_uses_selected_output_language(self, mock_kit):
+        response = self.client.post(reverse('core:process'), {
+            'source_type': 'text',
+            'raw_text': 'Isi materi dalam bahasa Inggris.',
+            'learning_style': 'detailed',
+            'language': 'id',
+        })
+        self.assertEqual(response.status_code, 302)
+        doc = Document.objects.get(user=self.user)
+        self.assertEqual(doc.language, 'id')
+        mock_kit.assert_called_once_with(
+            'Isi materi dalam bahasa Inggris.',
+            'detailed',
+            'umum',
+            '',
+            mock.ANY,
+            'id',
         )
 
     def test_process_invalid_form_shows_errors(self):
@@ -261,6 +324,19 @@ class ViewTests(TestCase):
         self.assertContains(response, '@click="flipped = !flipped"')
         self.assertNotContains(response, '@click="flip = !flip"')
 
+    def test_workspace_flashcards_render_mastery_feature(self):
+        doc = Document.objects.create(
+            user=self.user, title='M', source_type='text', raw_content='x',
+            ai_output=KIT_FIXTURE,
+        )
+        response = self.client.get(reverse('core:workspace', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'flashcardDeck()')
+        self.assertContains(response, 'Sudah Mahir ✓')
+        self.assertContains(response, 'Belum Mahir')
+        self.assertContains(response, 'Ulangi status semua kartu')
+        self.assertContains(response, 'isCurrentMastered')
+
     @mock.patch('core.views.chat_with_document', return_value='Jawaban AI')
     def test_chat_api_saves_messages(self, mock_chat):
         doc = Document.objects.create(
@@ -275,7 +351,7 @@ class ViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['content'], 'Jawaban AI')
         self.assertEqual(ChatMessage.objects.filter(document=doc).count(), 2)
-        mock_chat.assert_called_once_with('x', mock.ANY, 'sma', '10', 'M')
+        mock_chat.assert_called_once_with('x', mock.ANY, 'sma', '10', 'M', 'id')
 
     def test_workspace_renders_new_feature_sections(self):
         doc = Document.objects.create(
@@ -357,7 +433,7 @@ class ViewTests(TestCase):
         self.assertEqual(len(response.json()['exam']), 20)
         doc.refresh_from_db()
         self.assertEqual(doc.ai_output['exam'], EXAM_FIXTURE)
-        mock_exam.assert_called_once_with('materi', 'sma', '10')
+        mock_exam.assert_called_once_with('materi', 'sma', '10', 'id')
 
     @mock.patch('core.views.build_exam',
                 side_effect=ValueError('tepat 20 soal tetapi AI menghasilkan 5.'))
@@ -641,7 +717,7 @@ class PreferencesViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '<option value="sd">SD</option>', html=True)
         self.assertContains(response, '<option value="smp">SMP</option>', html=True)
-        self.assertContains(response, '<option value="socratic">Sokratus</option>', html=True)
+        self.assertContains(response, '<option value="socratic">Socratic</option>', html=True)
 
     def test_dashboard_hides_modal_when_preferences_set(self):
         profile = self.user.profile
@@ -650,6 +726,15 @@ class PreferencesViewTests(TestCase):
         response = self.client.get(reverse('core:dashboard'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'x-data="dashboardPage(true)"')
+
+    def test_dashboard_shows_output_language_select(self):
+        profile = self.user.profile
+        profile.preferences_set = True
+        profile.save(update_fields=['preferences_set'])
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Bahasa output')
+        self.assertContains(response, 'name="language"')
 
 
 class UserActivityTests(TestCase):
