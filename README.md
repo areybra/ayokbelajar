@@ -1,11 +1,11 @@
 # AyokBelajar
-[![Version](https://img.shields.io/badge/version-0.0.3--simplify-blue)](https://github.com/areybra/ayokbelajar/releases)
+[![Version](https://img.shields.io/badge/version-0.0.4--vercel-blue)](https://github.com/areybra/ayokbelajar/releases)
 
 Aplikasi belajar interaktif berbasis **Django 5.2** yang mengubah materi belajar (teks, PDF, YouTube)
 menjadi paket belajar lengkap: **rangkuman, peta pikiran, peta belajar (roadmap), kartu belajar, dan latihan soal** —
 semuanya dihasilkan oleh **Google Gemini API**. Plus **chat dengan dokumen** untuk bertanya langsung tentang materi.
 
-> Status: **Development** — Versi 0.0.3 (simplify — deploy MySQL-only, auth Django native tanpa Supabase/OAuth, lebih mudah di VPS/shared hosting).
+> Status: **Development** — Versi 0.0.4 (fix warning Vercel `unused-build-settings`: `vercel.json` modern tanpa `builds`/`routes`, entrypoint `api/index.py`, fallback `PyMySQL` untuk MySQL di serverless).
 
 ## Fitur
 
@@ -293,12 +293,13 @@ Troubleshooting shared hosting: 500 setelah deploy → cek log Python App (biasa
 
 Vercel filesystem read-only/ephemeral → **jangan pakai SQLite**. Gunakan MySQL eksternal (PlanetScale / Railway / Aiven) yang reachable dari internet.
 
-1. `vercel.json` + `build_files.sh` sudah tersedia di repo (dipakai otomatis oleh Vercel, diabaikan di VPS/shared).
-2. Import repo GitHub di Vercel → Framework **Other** → biarkan build command dari `vercel.json`.
+1. `vercel.json` modern (tanpa `builds`/`routes` lawas) + entrypoint `api/index.py` sudah tersedia di repo — diabaikan di VPS/shared. Format baru memakai `buildCommand` + `functions` + `rewrites`, sehingga **warning `unused-build-settings` hilang** dan setting di Vercel Dashboard kembali berlaku.
+2. Import repo GitHub di Vercel → Framework **Other** → Build Command dikunci dari `vercel.json` (`python manage.py collectstatic --noinput`), Output Directory `staticfiles`.
 3. Isi **Environment Variables** di Vercel (Production + Preview):
    `DEBUG=False`, `SECRET_KEY`, `ALLOWED_HOSTS=.vercel.app,yourdomain.com`, `CSRF_TRUSTED_ORIGINS=https://yourdomain.com`, `DATABASE_URL=mysql://user:pass@host:3306/dbname`, `GOOGLE_API_KEY`, `BEHIND_PROXY=True`.
    Vercel otomatis set `VERCEL=1` dan `VERCEL_URL`, sehingga `settings.py` auto-append `.vercel.app`.
-4. Deploy. Batasan: cold start + timeout serverless — untuk trafik produksi serius, VPS tetap disarankan.
+4. MySQL di Vercel: `mysqlclient` butuh lib sistem yang tidak ada di serverless → repo sudah menyertakan fallback murni-Python `PyMySQL==1.1.1` + shim `pymysql.install_as_MySQLdb()` di `ayokbelajar_proj/__init__.py`, jadi backend Django `mysql` tetap jalan tanpa compiler. Di VPS/shared, `mysqlclient` biner tetap dipakai (lebih cepat).
+5. Deploy. Batasan: cold start + `maxDuration: 60` — untuk trafik produksi serius, VPS tetap disarankan.
 
 ### 4. PaaS / Docker (Render / Railway / Fly / VPS-Docker)
 
@@ -345,11 +346,11 @@ ayokbelajar_proj/
 │   └── templates/core/   # Template halaman (dashboard, workspace, library, dst.)
 ├── templates/            # Base layout & auth
 ├── static/core/js/       # JS client (export, flashcards, ujian, chat, editor)
-├── requirements.txt      # Dependency (mysqlclient untuk MySQL produksi)
+├── requirements.txt      # Dependency (mysqlclient + fallback PyMySQL untuk MySQL)
 ├── rules.md              # Pedoman UI/UX proyek
 ├── Procfile              # gunicorn (VPS/PaaS)
-├── vercel.json           # deploy Vercel (diabaikan di VPS/shared)
-├── build_files.sh        # build Vercel (collectstatic)
+├── vercel.json           # deploy Vercel modern: buildCommand+functions+rewrites (diabaikan di VPS/shared)
+├── api/index.py          # entrypoint serverless Vercel → import wsgi.application
 └── .env                  # Rahasia — JANGAN di-commit
 ```
 
