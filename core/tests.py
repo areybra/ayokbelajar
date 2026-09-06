@@ -615,8 +615,7 @@ class RegisterViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Buat akun')
 
-    @mock.patch('core.views.supabase_auth.is_configured', return_value=False)
-    def test_register_creates_user_and_logs_in(self, _mock_configured):
+    def test_register_creates_user_and_logs_in(self):
         response = self.client.post(reverse('core:register'), {
             'full_name': 'Alice',
             'email': 'alice@example.com',
@@ -640,8 +639,7 @@ class RegisterViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFormError(response.context['form'], 'password2', 'Konfirmasi password tidak cocok.')
 
-    @mock.patch('core.views.supabase_auth.is_configured', return_value=False)
-    def test_register_creates_profile_without_preferences(self, _mock_configured):
+    def test_register_creates_profile_without_preferences(self):
         response = self.client.post(reverse('core:register'), {
             'full_name': 'Budi',
             'email': 'budi@example.com',
@@ -663,16 +661,17 @@ class RegisterViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFormError(response.context['form'], 'email', 'Email ini sudah terdaftar.')
 
-    @mock.patch('core.views.supabase_auth.sign_up')
-    @mock.patch('core.views.supabase_auth.is_configured', return_value=True)
-    def test_register_syncs_supabase_when_configured(self, _mock_configured, mock_signup):
+    def test_register_creates_login_immediately(self):
         self.client.post(reverse('core:register'), {
             'full_name': 'Bob',
             'email': 'bob@example.com',
             'password1': 'rahasia123',
             'password2': 'rahasia123',
         })
-        mock_signup.assert_called_once_with('bob@example.com', 'rahasia123', 'Bob')
+        self.assertTrue(User.objects.filter(email='bob@example.com').exists())
+        # user langsung login setelah register
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertEqual(response.status_code, 200)
 
 
 class PreferencesViewTests(TestCase):
@@ -795,41 +794,17 @@ class UserActivityTests(TestCase):
         )
 
 
-class OAuthViewTests(TestCase):
-    def test_oauth_login_unknown_provider_404(self):
-        response = self.client.get(reverse('core:oauth_login', kwargs={'provider': 'x'}))
-        self.assertEqual(response.status_code, 404)
-
-    @mock.patch('core.views.supabase_auth.is_configured', return_value=False)
-    def test_oauth_login_not_configured_redirects(self, _mock_configured):
-        response = self.client.get(reverse('core:oauth_login', kwargs={'provider': 'google'}))
-        self.assertEqual(response.status_code, 302)
-        self.assertIn('/accounts/login/', response.url)
-
-    @mock.patch('core.views.supabase_auth.authorize_url',
-                return_value=('https://x.supabase.co/auth/v1/authorize?...', 'VERIFIER'))
-    @mock.patch('core.views.supabase_auth.is_configured', return_value=True)
-    def test_oauth_login_redirects_to_provider(self, _mock_configured, _mock_authorize):
-        response = self.client.get(reverse('core:oauth_login', kwargs={'provider': 'github'}))
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.url.startswith('https://x.supabase.co'))
-        self.assertEqual(self.client.session.get('oauth_code_verifier'), 'VERIFIER')
-
-    @mock.patch('core.views.supabase_auth.exchange_code', return_value={
-        'user': {'email': 'dev@github.com', 'user_metadata': {'name': 'Dev'}},
-    })
-    def test_oauth_callback_creates_user_and_logs_in(self, _mock_exchange):
-        session = self.client.session
-        session['oauth_code_verifier'] = 'VERIFIER'
-        session.save()
-        response = self.client.get(reverse('core:oauth_callback'), {'code': 'CODE'})
+class AuthNativeTests(TestCase):
+    def test_login_uses_django_native(self):
+        User.objects.create_user(username='alice@example.com', email='alice@example.com', password='rahasia123')
+        response = self.client.post(reverse('login'), {
+            'username': 'alice@example.com',
+            'password': 'rahasia123',
+        })
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse('core:dashboard'))
-        user = User.objects.get(email='dev@github.com')
-        self.assertEqual(user.username, 'dev@github.com')
-        self.assertFalse(user.has_usable_password())
 
-    def test_oauth_callback_without_code_redirects(self):
-        response = self.client.get(reverse('core:oauth_callback'))
-        self.assertEqual(response.status_code, 302)
-        self.assertIn('/accounts/login/', response.url)
+    def test_oauth_routes_removed(self):
+        # OAuth Supabase sudah dihapus — harus 404
+        self.assertEqual(self.client.get('/oauth/google/').status_code, 404)
+        self.assertEqual(self.client.get('/oauth/callback/').status_code, 404)

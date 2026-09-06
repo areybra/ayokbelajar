@@ -8,12 +8,11 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.http import Http404, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from . import supabase_auth
 from .forms import ProfilePreferencesForm, RegisterForm, SettingsForm, StudyKitForm
 from .models import ChatMessage, Document, PracticeSession, UserActivity
 from .services import (
@@ -46,68 +45,11 @@ def register_view(request):
             password=data['password1'],
             first_name=data['full_name'],
         )
-        if supabase_auth.is_configured():
-            try:
-                supabase_auth.sign_up(email, data['password1'], data['full_name'])
-            except Exception as exc:  # noqa: BLE001 - akun lokal tetap dibuat
-                messages.warning(request, f'Akun lokal dibuat, tapi sinkron ke Supabase gagal: {exc}')
         login(request, user)
         messages.success(request, 'Akun berhasil dibuat. Selamat datang di AyokBelajar!')
         return redirect(reverse('core:dashboard'))
 
     return render(request, 'core/register.html', {'form': form})
-
-
-def oauth_login_view(request, provider):
-    if provider not in supabase_auth.SUPPORTED_PROVIDERS:
-        raise Http404
-    if not supabase_auth.is_configured():
-        messages.error(request, 'Login dengan Google/GitHub belum dikonfigurasi.')
-        return redirect('login')
-
-    redirect_to = request.build_absolute_uri(reverse('core:oauth_callback'))
-    try:
-        url, code_verifier = supabase_auth.authorize_url(provider, redirect_to)
-    except Exception as exc:  # noqa: BLE001
-        messages.error(request, f'Gagal menyiapkan login: {exc}')
-        return redirect('login')
-
-    request.session['oauth_code_verifier'] = code_verifier
-    return redirect(url)
-
-
-def oauth_callback_view(request):
-    code = request.GET.get('code', '')
-    code_verifier = request.session.pop('oauth_code_verifier', '')
-    if not code or not code_verifier:
-        messages.error(request, 'Proses login sosial gagal atau kedaluwarsa. Silakan coba lagi.')
-        return redirect('login')
-
-    try:
-        data = supabase_auth.exchange_code(code, code_verifier)
-    except Exception as exc:  # noqa: BLE001
-        messages.error(request, f'Verifikasi login sosial gagal: {exc}')
-        return redirect('login')
-
-    user_info = data.get('user', {})
-    email = (user_info.get('email') or '').strip().lower()
-    if not email:
-        messages.error(request, 'Email tidak tersedia pada akun sosial. Coba metode lain.')
-        return redirect('login')
-
-    metadata = user_info.get('user_metadata') or {}
-    full_name = metadata.get('full_name') or metadata.get('name') or email.split('@')[0]
-
-    user, created = User.objects.get_or_create(
-        email=email,
-        defaults={'username': email, 'first_name': full_name},
-    )
-    if created:
-        user.set_unusable_password()
-        user.save()
-    login(request, user)
-    messages.success(request, 'Berhasil masuk melalui akun sosial!')
-    return redirect(reverse('core:dashboard'))
 
 
 def _dashboard_context(request, form=None):

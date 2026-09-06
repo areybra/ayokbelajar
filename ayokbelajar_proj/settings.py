@@ -52,8 +52,7 @@ if os.getenv('VERCEL_URL'):
         CSRF_TRUSTED_ORIGINS.append(_vercel_host)
 
 # Proxy header: aktifkan bila di belakang proxy HTTPS (Vercel, Nginx, Cloudflare, cPanel).
-# Set env BEHIND_PROXY=True di hosting yang pakai reverse proxy agar build_absolute_uri() jadi https://
-# (penting untuk Supabase OAuth redirect_to — bila http vs https mismatch, Supabase 400).
+# Set env BEHIND_PROXY=True di hosting yang pakai reverse proxy agar request.is_secure() benar.
 if os.getenv('VERCEL') or os.getenv('BEHIND_PROXY', '').lower() in ('true', '1', 'yes') or os.getenv('DATABASE_URL'):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     USE_X_FORWARDED_HOST = True
@@ -81,11 +80,6 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': False,
         },
-        'core.supabase_auth': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
     },
 }
 
@@ -97,10 +91,6 @@ GEMINI_FALLBACK_MODELS = [
     for m in os.getenv('GEMINI_FALLBACK_MODELS', 'gemini-2.5-flash,gemini-2.5-flash-lite').split(',')
     if m.strip()
 ]
-
-# Supabase Auth
-SUPABASE_URL = os.getenv('SUPABASE_URL', '')
-SUPABASE_ANON_KEY = os.getenv('SUPABASE_ANON_KEY', '')
 
 # Paket Free: jumlah study kit (dokumen) yang bisa dibuat per bulan
 FREE_MONTHLY_DOCUMENT_LIMIT = int(os.getenv('FREE_MONTHLY_DOCUMENT_LIMIT', '3'))
@@ -153,8 +143,8 @@ WSGI_APPLICATION = 'ayokbelajar_proj.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-# Gunakan SQLite untuk development & test; override DATABASE_URL untuk produksi (MySQL/PostgreSQL).
-# dj_database_url memilih engine dari skema URL: mysql:// -> mysql, postgres:// -> postgresql.
+# Dev & test: SQLite. Produksi: MySQL 8.x via DATABASE_URL (mysql://).
+# Contoh: mysql://user:password@db-host:3306/nama_database
 
 if 'test' in sys.argv:
     DATABASES = {
@@ -166,14 +156,12 @@ if 'test' in sys.argv:
 elif os.getenv('DATABASE_URL'):
     DATABASES = {'default': dj_database_url.config(conn_max_age=60, ssl_require=not DEBUG)}
 else:
-    # Produksi (DEBUG=False) wajib DATABASE_URL — SQLite di filesystem PaaS/Vercel
-    # bersifat read-only/ephemeral dan pasti 500 (OperationalError: attempt to write a readonly database).
-    # VPS/shared hosting: tetap set DATABASE_URL ke mysql:// atau postgres:// eksternal.
+    # Produksi (DEBUG=False) wajib DATABASE_URL — SQLite tidak cocok untuk MySQL hosting.
     if not DEBUG:
         import logging as _logging
         _logging.warning(
-            'DATABASE_URL kosong saat DEBUG=False — fallback ke SQLite akan gagal di hosting '
-            'read-only (Vercel) / tidak persisten. Set DATABASE_URL di env hosting.'
+            'DATABASE_URL kosong saat DEBUG=False — fallback ke SQLite. '
+            'Set DATABASE_URL=mysql://user:password@host:3306/dbname di env hosting (MySQL).'
         )
     DATABASES = {
         'default': {

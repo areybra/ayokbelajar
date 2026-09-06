@@ -15,9 +15,8 @@ dihasilkan oleh **Google Gemini API**. Tambahan: **chat dengan dokumen** untuk b
 - **Framework:** Django 5.2.x (wajib, sesuai `AGENTS.md` — bukan Laravel/Next/React)
 - **UI:** Django Templates + Tailwind CSS (CDN) + Alpine.js + HTMX-ish vanilla JS + marked.js
 - **AI:** Google Gemini via library `google-genai` (SDK resmi, bukan REST manual)
-- **Auth:** Supabase Auth (email/password + OAuth Google & GitHub) via PKCE; sesi Django dibangun manual
- - **DB:** SQLite (dev via `runserver`); produksi target MySQL 8.x lewat `DATABASE_URL`
-   (engine otomatis oleh `dj-database-url`; `mysql://` → MySQL, `postgres://` → PostgreSQL).
+- **Auth:** Django Auth native (email/password saja, tanpa Supabase/OAuth)
+ - **DB:** SQLite (dev via `runserver`); produksi MySQL 8.x lewat `DATABASE_URL` (`mysql://`).
 
 ---
 
@@ -50,16 +49,15 @@ deploy tanpa Docker (lihat README > Deployment).
 C:\yok\ayokbelajar_proj\
 ├── manage.py
 ├── .env                        <- KONFIGURASI RAHASIA NYATA (dibaca settings.py)
- ├── requirements.txt            <- UTF-8 BOM + CRLF; engine otomatis dari DATABASE_URL (mysql/postgres/sqlite)
+ ├── requirements.txt            <- MySQL via mysqlclient + dj-database-url
  ├── Procfile                     <- gunicorn
  ├── ayokbelajar_proj\
- │   └── settings.py             <- load_dotenv(BASE_DIR / '.env'); DATABASES via dj_database_url
+ │   └── settings.py             <- load_dotenv(BASE_DIR / '.env'); DATABASES via dj_database_url (mysql://)
 │   └── urls.py                 <- root urls (mount core + accounts/)
 ├── core\
 │   ├── urls.py                 <- semua route app
 │   ├── views.py                <- view functions (landing..delete_document)
 │   ├── services.py             <- logika bisnis + integrasi Gemini
-│   ├── supabase_auth.py        <- PKCE, authorize_url, exchange_code, sign_up
 │   ├── models.py               <- Profile, Document, ChatMessage, UserActivity
 │   ├── forms.py                <- StudyKitForm, RegisterForm
 │   ├── signals.py              <- buat Profile otomatis saat User dibuat
@@ -68,7 +66,7 @@ C:\yok\ayokbelajar_proj\
 │   └── migrations\0001_0002
 ├── templates\
 │   ├── base.html               <- layout: sidebar (login) / top navbar (anonim); [x-cloak] CSS
-│   ├── registration\login.html <- tombol Google/GitHub + form email/password
+│   ├── registration\login.html <- form email/password Django native
 │   └── core\
 │       ├── dashboard.html      <- form input materi (Alpine: source switcher + x-cloak) + kredit/streak
 │       ├── workspace.html      <- tampilan paket belajar (tab, editor rangkuman, ujian) + chat panel
@@ -105,9 +103,7 @@ Relasi: `User 1—1 Profile`, `User 1—N Document`, `Document 1—N ChatMessage
 ```
 /                               landing_view
 /register/                      register_view
-/oauth/<provider>/              oauth_login_view          (mulai PKCE, redirect ke Supabase)
-/oauth/callback/                oauth_callback_view       (tukar code -> buat sesi)
-/accounts/                      Django auth (login/logout/password)
+/accounts/                      Django auth native (login/logout/password, tanpa OAuth)
 /dashboard/                     dashboard_view            (login required; kredit & streak)
 /preferences/                   preferences_view          (POST preferensi dari modal)
 /library/                       library_view              (daftar materi + paginasi)
@@ -120,11 +116,9 @@ Relasi: `User 1—1 Profile`, `User 1—N Document`, `Document 1—N ChatMessage
 /workspace/<pk>/delete/         delete_document_view
 ```
 
-### 5.2 Alur Auth
-- **Register:** `RegisterForm` -> `sign_up()` ke Supabase -> buat `User` Django + `Profile` (via signal).
-- **Login email/password:** form Django -> `authenticate/login` (sesi Django).
-- **OAuth:** tombol Google/GitHub -> `authorize_url(provider)` membangun URL Supabase PKCE
-  (tanpa `client_id`, pakai `scopes`) -> callback tukar `code` -> buat `User` lokal -> login.
+### 5.2 Alur Auth (Django native — tanpa Supabase/OAuth)
+- **Register:** `RegisterForm` -> `User.objects.create_user()` + `Profile` (via signal) -> `login()`.
+- **Login:** `django.contrib.auth` `LoginView` (email sebagai `username`) -> sesi Django.
 
 ### 5.3 Alur Proses Materi (core/services.py: `build_learning_kit`)
 1. View menerima input dari `StudyKitForm` (teks / URL YouTube / upload PDF, jumlah flashcard,
@@ -206,11 +200,7 @@ File yang dibaca: **`C:\yok\ayokbelajar_proj\.env`** (bukan `C:\yok\.env` yang s
 | `GEMINI_MODEL` | **`gemini-flash-latest`** (jangan pakai `gemini-1.5-flash`, tidak tersedia) |
 | `GEMINI_FALLBACK_MODELS` | daftar model cadangan dipisah koma; default `gemini-2.5-flash,gemini-2.5-flash-lite` (dipakai saat model aktif 429/5xx atau tidak tersedia) |
 | `FREE_MONTHLY_DOCUMENT_LIMIT` | kuota kredit study kit per bulan (default `3`) |
-| `SUPABASE_URL` | base URL Supabase project |
-| `SUPABASE_ANON_KEY` | anon key |
-| `SUPABASE_CLIENT_ID` | client_id OAuth Google terdaftar di Supabase |
-| `SUPABASE_GITHUB_CLIENT_ID` | client_id OAuth GitHub |
-| `DATABASE_URL` | **harus KOSONG** di dev agar pakai SQLite; jika diisi Supabase URL akan error |
+| `DATABASE_URL` | **kosong** di dev (SQLite), isi `mysql://user:password@host:3306/dbname` di produksi (MySQL) |
 
 ---
 
@@ -223,7 +213,7 @@ File yang dibaca: **`C:\yok\ayokbelajar_proj\.env`** (bukan `C:\yok\.env` yang s
 | 3 | Gemini API 400 (placeholder key) | `load_dotenv(BASE_DIR / '.env')` bukan parent | `settings.py` |
 | 4 | Model Gemini tidak ada | `gemini-flash-latest` (bukan `gemini-1.5-flash`) | `.env` |
 | 5 | DB config error | `DATABASE_URL` dikosongkan; struktur `DATABASES` if/elif/else + import `sys` | `.env`, `settings.py` |
-| 6 | OAuth Google/GitHub ditolak | `authorize_url` pakai `scopes`, tanpa `client_id`/`response_type`; client_id asli dipakai via Supabase config | `core/supabase_auth.py` |
+| 6 | Auth Supabase/OAuth (deprecated) | Dihapus v0.0.3 — ganti Django auth native (MySQL-only, tanpa Supabase) agar deploy VPS/shared hosting simpel | `views.py`, `urls.py`, `supabase_auth.py` (dihapus) |
 | 7 | Nav login vs anonim | Sidebar (kiri) untuk login; top navbar untuk anonim | `base.html` |
 | 8 | Generate materi error 400 (skema quiz) | `quiz` dihapus dari skema & diganti `exam` (20 soal, generate terpisah); frontend pakai `correctAnswer` | `services.py`, `workspace.html`, `app.js` |
 | 9 | Rangkuman tak bisa diedit (format) | Ganti Quill → `contenteditable` + `document.execCommand` (toolbar `.rt-toolbar`), simpan HTML ke `Document.summary_html` | `workspace.html`, `app.js`, `views.py` |
@@ -257,15 +247,10 @@ Verifikasi manual setelah perubahan: login, proses materi (3 sumber), buka works
 
 ## 9. Catatan Operasional / Risiko
 
-- **Supabase Redirect URL:** `http://localhost:8000/oauth/callback/` harus didaftarkan di
-  Supabase Dashboard → Authentication → URL Configuration → Redirect URLs, jika tidak OAuth gagal.
 - `python manage.py collectstatic` hanya untuk produksi; ada warning `staticfiles/` belum ada di dev — wajar.
 - **jangan regresi:** jangan kembalikan pemanggilan YouTube ke `YouTubeTranscriptApi.list_transcripts()` —
   API itu dihapus di `youtube-transcript-api` 1.2.4; gunakan instance `.list()`.
- - **Production DB:** MySQL 8.x via `DATABASE_URL` (`mysql://...`); `psycopg` sudah
-   dihapus dari `requirements.txt`. Jika berpindah ke PostgreSQL, cukup ganti skema URL
-   ke `postgres://` dan pasang kembali `psycopg[binary]` (`dj-database-url` meng-handle engine otomatis).
- - **Belum dikerjakan:** payment/upgrade paket (harga di
-  landing hanya mock); uji end-to-end OAuth pada env non-lokal.
+ - **Production DB:** MySQL 8.x via `DATABASE_URL` (`mysql://...`) — `mysqlclient==2.2.7` (`requirements.txt`).
+ - **Belum dikerjakan:** payment/upgrade paket (harga di landing hanya mock).
 - Baca `AGENTS.md` di `C:\yok` untuk aturan koding yang wajib dipatuhi (Django 5.x, minimal perubahan,
   test wajib, no hardcode secret). Pedoman UI: `rules.md` di root proyek.
