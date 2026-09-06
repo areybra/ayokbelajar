@@ -1,11 +1,11 @@
 # AyokBelajar
-[![Version](https://img.shields.io/badge/version-0.0.8--fix-blue)](https://github.com/areybra/ayokbelajar/releases)
+[![Version](https://img.shields.io/badge/version-0.0.9--perf-blue)](https://github.com/areybra/ayokbelajar/releases)
 
 Aplikasi belajar interaktif berbasis **Django 5.2** yang mengubah materi belajar (teks, PDF, YouTube)
 menjadi paket belajar lengkap: **rangkuman, peta pikiran, peta belajar (roadmap), kartu belajar, dan latihan soal** —
 semuanya dihasilkan oleh **Google Gemini API**. Plus **chat dengan dokumen** untuk bertanya langsung tentang materi.
 
-> Status: **Development** — Versi 0.0.8 (fix register 500 di produksi: buang `OPTIONS sslmode` untuk MySQL; SSL MySQL via `?ssl-ca=`).
+> Status: **Development** — Versi 0.0.9 (fix timeout 60 dtk Vercel: generate materi 2 tahap + cap konteks 30rb karakter).
 
 ## Fitur
 
@@ -299,7 +299,7 @@ Vercel filesystem read-only/ephemeral → **jangan pakai SQLite**. Gunakan MySQL
    `DEBUG=False`, `SECRET_KEY`, `ALLOWED_HOSTS=.vercel.app,yourdomain.com`, `CSRF_TRUSTED_ORIGINS=https://yourdomain.com`, `DATABASE_URL=mysql://user:pass@host:3306/dbname`, `GOOGLE_API_KEY`, `BEHIND_PROXY=True`.
    Vercel otomatis set `VERCEL=1` dan `VERCEL_URL`, sehingga `settings.py` auto-append `.vercel.app`.
 4. MySQL di Vercel: `mysqlclient` butuh `pkg-config` + `libmysqlclient` sistem yang tidak ada di serverless (error `Can not find valid pkg-config name`) → `requirements.txt` kini **PyMySQL-only** (`PyMySQL==1.1.1` + shim `pymysql.install_as_MySQLdb()` di `ayokbelajar_proj/__init__.py`), jadi backend Django `mysql` tetap jalan tanpa compiler di semua hosting.
-5. Deploy. Batasan: cold start + `maxDuration: 60` — untuk trafik produksi serius, VPS tetap disarankan.
+5. Deploy. Batasan: cold start + `maxDuration: 60` — generate materi dipecah otomatis 2 tahap (rangkuman+peta dulu, lalu kartu+sumber via auto-reload di workspace) agar tiap request muat < 60 dtk; untuk trafik produksi serius, VPS tetap disarankan.
 
 ### 4. PaaS / Docker (Render / Railway / Fly / VPS-Docker)
 

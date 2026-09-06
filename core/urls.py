@@ -14,6 +14,7 @@ urlpatterns = [
     path('process/', views.process_content_view, name='process'),
     path('workspace/<int:pk>/', views.workspace_view, name='workspace'),
     path('workspace/<int:pk>/chat/', views.chat_api_view, name='chat'),
+    path('workspace/<int:pk>/kit/supplement/', views.kit_supplement_api_view, name='kit_supplement'),
     path('workspace/<int:pk>/summary/', views.summary_save_api_view, name='summary_save'),
     path('workspace/<int:pk>/practice/generate/', views.practice_generate_api_view, name='practice_generate'),
     path('workspace/<int:pk>/practice/save/', views.practice_save_api_view, name='practice_save'),

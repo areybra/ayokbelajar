@@ -114,6 +114,7 @@ Relasi: `User 1—1 Profile`, `User 1—N Document`, `Document 1—N ChatMessage
 /workspace/<pk>/chat/           chat_api_view             (POST JSON -> jawaban AI)
 /workspace/<pk>/summary/        summary_save_api_view     (POST JSON -> simpan edit rangkuman)
 /workspace/<pk>/practice/generate/  practice_generate_api_view    (POST -> generate 20 soal)
+/workspace/<pk>/kit/supplement/     kit_supplement_api_view       (POST JSON -> kartu + sumber tahap 2)
 /workspace/<pk>/delete/         delete_document_view
 ```
 
@@ -121,14 +122,20 @@ Relasi: `User 1—1 Profile`, `User 1—N Document`, `Document 1—N ChatMessage
 - **Register:** `RegisterForm` -> `User.objects.create_user()` + `Profile` (via signal) -> `login()`.
 - **Login:** `django.contrib.auth` `LoginView` (email sebagai `username`) -> sesi Django.
 
-### 5.3 Alur Proses Materi (core/services.py: `build_learning_kit`)
+### 5.3 Alur Proses Materi 2 tahap (batas 60 dtk Vercel Hobby)
 1. View menerima input dari `StudyKitForm` (teks / URL YouTube / upload PDF, jumlah flashcard,
    learning_style, **language (bahasa output)**, education_level, grade). Field `num_quiz` sudah DIPINDAHKAN dari form.
 2. Ekstrak konten: `extract_youtube_transcript()` (pakai API instance `.list()`; lihat catatan v1.2.4)
    atau `extract_pdf_text()` (pypdf).
-3. Simpan `Document` (raw_content + metadata, termasuk `language`).
-4. Panggil Gemini sekali untuk membuat `ai_output` berisi:
-   `summary` (markdown), `roadmap` (steps), `flashcards`, `resources`.
+3. **Tahap 1** (`process_content_view` -> `build_core_kit`): Gemini membuat `summary` +
+   `roadmap` saja -> simpan `Document` (raw_content + metadata + `_meta.num_flashcards`) ->
+   redirect ke workspace. Output kecil + konteks materi dicap `KIT_MATERIAL_LIMIT`
+   (30rb karakter) agar selesai < 60 dtk.
+4. **Tahap 2** (otomatis dari workspace via `supplementLoader` di `app.js` ->
+   `kit_supplement_api_view` -> `build_supplement_kit`): Gemini membuat `flashcards` +
+   `resources` -> digabung ke `ai_output` -> halaman reload. Idempoten (bila sudah ada,
+   kembalikan cache). Gagal/timeout -> tampilkan tombol "Coba lagi".
+   `build_learning_kit()` lawas dipertahankan sebagai komposisi keduanya (dipakai test).
    `exam` (20 soal pilihan ganda) DIBUAT TERPISAH via `/workspace/<pk>/practice/generate/`.
 5. `_parse_json` memastikan output AI valid (fallback struktural jika JSON tidak bersih).
 
@@ -230,6 +237,7 @@ File yang dibaca: **`C:\yok\ayokbelajar_proj\.env`** (bukan `C:\yok\.env` yang s
 | 19 | Export terpisah-pisah di header workspace | Gabung jadi dropdown "Export": Rangkuman (.md), Anki CSV, Paket Lengkap (.md), Latihan Soal (.md), Cetak PDF | `workspace.html`, `app.js` (`downloadKit`, `downloadExam`, `exportPanel`) |
 | 20 | Admin polos bawaan Django | Integrasi `django-jazzmin` 3.0.5 (tema `flatly` + brand teal `#0D9488`, dark mode `auto`, sidebar `dark-primary`, logo `static/img/ayok-logo.svg`); `core/admin.py` didesain ulang (list/filter/search/date_hierarchy, pratinjau AI, `UserActivity` ikut terdaftar) | `settings.py` (`JAZZMIN_SETTINGS`, `JAZZMIN_UI_TWEAKS`), `static/jazzmin/admin.css`, `static/img/ayok-logo.svg`, `core/admin.py` |
 | 21 | Register 500 di produksi (lokal OK) | `dj-database-url` menyuntik `OPTIONS sslmode=require` (sintaks Postgres) saat `ssl_require=True` → ditolak driver MySQL (TypeError) di semua query DB; `_fix_mysql_options()` membuangnya khusus engine mysql; SSL MySQL via `?ssl-ca=` | `settings.py` (`_fix_mysql_options`), `tests.py` (`MysqlOptionsTests`) |
+| 22 | Generate materi timeout 60 dtk di Vercel | 1 panggilan raksasa (summary+roadmap+flashcards+resources, konteks 200rb char) + retry/failover mustahil < batas Hobby; dipecah 2 tahap (core lalu supplement via `supplementLoader` + reload) + cap materi `KIT_MATERIAL_LIMIT` 30rb char | `services.py` (`build_core_kit`, `build_supplement_kit`), `views.py` (`kit_supplement_api_view`), `urls.py`, `workspace.html`, `app.js` (`supplementLoader`) |
 
 ---
 

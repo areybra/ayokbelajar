@@ -9,17 +9,34 @@ from google.genai.errors import APIError
 from .models import ChatMessage, Document, Profile, UserActivity
 from .services import (
     FRIENDLY_UNAVAILABLE_MSG,
+    KIT_MATERIAL_LIMIT,
     _call_with_retry,
     _parse_json,
     _parse_youtube_id,
+    build_core_kit,
     build_exam,
     build_learning_kit,
+    build_supplement_kit,
     chat_with_document,
 )
 
 KIT_FIXTURE = {
     'summary': '# Ringkasan',
     'roadmap': [{'step': 1, 'title': 'Mulai', 'detail': 'Definisi'}],
+    'flashcards': [{'question': 'Apa X?', 'answer': 'X adalah Y'}],
+    'resources': {
+        'books': [{'title': 'Buku X', 'note': 'Bagus untuk pemula.'}],
+        'articles': [{'title': 'Artikel Y', 'note': 'Penjelasan visual.'}],
+        'search_query': 'teori X untuk pemula',
+    },
+}
+
+CORE_FIXTURE = {
+    'summary': '# Ringkasan',
+    'roadmap': [{'step': 1, 'title': 'Mulai', 'detail': 'Definisi'}],
+}
+
+SUPPLEMENT_FIXTURE = {
     'flashcards': [{'question': 'Apa X?', 'answer': 'X adalah Y'}],
     'resources': {
         'books': [{'title': 'Buku X', 'note': 'Bagus untuk pemula.'}],
@@ -85,12 +102,50 @@ class ServiceTests(TestCase):
 
     @mock.patch('core.services._get_client')
     def test_build_learning_kit_returns_parsed_dict(self, mock_client):
-        fake = mock.Mock()
-        fake.text = json.dumps(KIT_FIXTURE)
-        mock_client.return_value.models.generate_content.return_value = fake
+        core_fake = mock.Mock()
+        core_fake.text = json.dumps(CORE_FIXTURE)
+        supplement_fake = mock.Mock()
+        supplement_fake.text = json.dumps(SUPPLEMENT_FIXTURE)
+        mock_client.return_value.models.generate_content.side_effect = [core_fake, supplement_fake]
         result = build_learning_kit('materi', 'detailed', 'sma', '10', 10)
         self.assertEqual(result['flashcards'][0]['question'], 'Apa X?')
-        mock_client.return_value.models.generate_content.assert_called_once()
+        self.assertEqual(result['summary'], '# Ringkasan')
+        self.assertEqual(mock_client.return_value.models.generate_content.call_count, 2)
+
+    @mock.patch('core.services._get_client')
+    def test_build_core_kit_returns_core_keys(self, mock_client):
+        fake = mock.Mock()
+        fake.text = json.dumps(CORE_FIXTURE)
+        mock_client.return_value.models.generate_content.return_value = fake
+        result = build_core_kit('materi', 'detailed', 'sma', '10', language='id')
+        self.assertEqual(result['summary'], '# Ringkasan')
+        self.assertEqual(len(result['roadmap']), 1)
+        self.assertNotIn('flashcards', result)
+        prompt = mock_client.return_value.models.generate_content.call_args.kwargs['contents']
+        self.assertIn('BAHASA OUTPUT', prompt)
+        self.assertNotIn('flashcards', prompt.split('MATERIAL:')[0])
+
+    @mock.patch('core.services._get_client')
+    def test_build_supplement_kit_returns_supplement_keys(self, mock_client):
+        fake = mock.Mock()
+        fake.text = json.dumps(SUPPLEMENT_FIXTURE)
+        mock_client.return_value.models.generate_content.return_value = fake
+        result = build_supplement_kit('materi', 'detailed', 'sma', '10', 7, language='id')
+        self.assertEqual(result['flashcards'][0]['question'], 'Apa X?')
+        self.assertIn('search_query', result['resources'])
+        prompt = mock_client.return_value.models.generate_content.call_args.kwargs['contents']
+        self.assertIn('sebanyak 7 kartu', prompt)
+
+    @mock.patch('core.services._get_client')
+    def test_kit_prompts_cap_material_length(self, mock_client):
+        fake = mock.Mock()
+        fake.text = json.dumps(CORE_FIXTURE)
+        mock_client.return_value.models.generate_content.return_value = fake
+        long_material = 'x' * (KIT_MATERIAL_LIMIT + 5000)
+        build_core_kit(long_material, 'detailed', 'sma', '10')
+        prompt = mock_client.return_value.models.generate_content.call_args.kwargs['contents']
+        self.assertNotIn(long_material, prompt)
+        self.assertIn('x' * 100, prompt)
 
     @mock.patch('core.services.time.sleep')
     def test_call_with_retry_retries_on_503_then_succeeds(self, _mock_sleep):
@@ -248,7 +303,7 @@ class ViewTests(TestCase):
         response = self.client.get(reverse('core:landing'))
         self.assertEqual(response.status_code, 200)
 
-    @mock.patch('core.views.build_learning_kit', return_value=KIT_FIXTURE)
+    @mock.patch('core.views.build_core_kit', return_value=dict(CORE_FIXTURE))
     def test_process_text_uses_profile_preferences(self, mock_kit):
         profile = self.user.profile
         profile.learning_style = 'visual'
@@ -268,16 +323,17 @@ class ViewTests(TestCase):
         self.assertEqual(doc.education_level, 'sma')
         self.assertEqual(doc.grade, '10')
         self.assertEqual(doc.ai_output['summary'], '# Ringkasan')
+        self.assertNotIn('flashcards', doc.ai_output)
+        self.assertIn('num_flashcards', doc.ai_output['_meta'])
         mock_kit.assert_called_once_with(
             'Isi materi yang cukup panjang untuk belajar.',
             'socratic',
             'sma',
             '10',
-            mock.ANY,
             'id',
         )
 
-    @mock.patch('core.views.build_learning_kit', return_value=KIT_FIXTURE)
+    @mock.patch('core.views.build_core_kit', return_value=dict(CORE_FIXTURE))
     def test_process_text_uses_selected_output_language(self, mock_kit):
         response = self.client.post(reverse('core:process'), {
             'source_type': 'text',
@@ -293,7 +349,6 @@ class ViewTests(TestCase):
             'detailed',
             'umum',
             '',
-            mock.ANY,
             'id',
         )
 
@@ -456,6 +511,69 @@ class ViewTests(TestCase):
         )
         response = self.client.post(reverse('core:practice_generate', kwargs={'pk': doc.pk}))
         self.assertEqual(response.status_code, 403)
+
+
+class KitSupplementViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('alice', password='pass')
+        self.client.force_login(self.user)
+
+    def _core_doc(self, **kwargs):
+        ai_output = dict(CORE_FIXTURE)
+        ai_output['_meta'] = {'num_flashcards': 7}
+        params = {
+            'user': self.user, 'title': 'M', 'source_type': 'text',
+            'raw_content': 'materi', 'ai_output': ai_output,
+        }
+        params.update(kwargs)
+        return Document.objects.create(**params)
+
+    @mock.patch('core.views.build_supplement_kit', return_value=dict(SUPPLEMENT_FIXTURE))
+    def test_supplement_merges_flashcards_and_resources(self, mock_supp):
+        doc = self._core_doc()
+        response = self.client.post(reverse('core:kit_supplement', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['ok'])
+        self.assertEqual(len(data['flashcards']), 1)
+        self.assertIn('search_query', data['resources'])
+        doc.refresh_from_db()
+        self.assertEqual(doc.ai_output['summary'], '# Ringkasan')
+        self.assertEqual(doc.ai_output['flashcards'][0]['question'], 'Apa X?')
+
+    def test_supplement_returns_cached_when_complete(self):
+        doc = self._core_doc(ai_output=dict(KIT_FIXTURE))
+        with mock.patch('core.views.build_supplement_kit') as mock_supp:
+            response = self.client.post(reverse('core:kit_supplement', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json().get('cached'))
+        mock_supp.assert_not_called()
+
+    def test_supplement_ownership_denied(self):
+        other = User.objects.create_user('bob', password='pass')
+        doc = Document.objects.create(
+            user=other, title='M', source_type='text', raw_content='x',
+            ai_output=dict(CORE_FIXTURE),
+        )
+        response = self.client.post(reverse('core:kit_supplement', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 403)
+
+    @mock.patch('core.views.build_supplement_kit',
+                side_effect=ValueError('Layanan AI sedang sibuk'))
+    def test_supplement_returns_error_json(self, _mock_supp):
+        doc = self._core_doc()
+        response = self.client.post(reverse('core:kit_supplement', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('sibuk', response.json()['error'])
+        doc.refresh_from_db()
+        self.assertNotIn('flashcards', doc.ai_output)
+
+    def test_workspace_partial_kit_shows_supplement_loader(self):
+        doc = self._core_doc()
+        response = self.client.get(reverse('core:workspace', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Melengkapi')
+        self.assertContains(response, 'supplementLoader')
 
     def test_practice_save_api_saves_current_session(self):
         doc = Document.objects.create(

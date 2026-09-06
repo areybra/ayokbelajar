@@ -16,8 +16,9 @@ from django.views.decorators.http import require_POST
 from .forms import ProfilePreferencesForm, RegisterForm, SettingsForm, StudyKitForm
 from .models import ChatMessage, Document, PracticeSession, UserActivity
 from .services import (
+    build_core_kit,
     build_exam,
-    build_learning_kit,
+    build_supplement_kit,
     chat_with_document,
     extract_pdf_text,
     extract_youtube_transcript,
@@ -173,14 +174,16 @@ def process_content_view(request):
         num_flashcards = data.get('num_flashcards') or randint(5, 10)
 
         language = data.get('language') or profile.language
-        ai_output = build_learning_kit(
+        # Tahap 1 (cepat, < 60 dtk): rangkuman + roadmap saja. Kartu & sumber
+        # dibuat di tahap 2 via kit_supplement_api_view agar lolos batas serverless.
+        ai_output = build_core_kit(
             raw_content,
             data.get('learning_style') or profile.learning_style,
             profile.education_level,
             profile.grade,
-            num_flashcards,
             language,
         )
+        ai_output['_meta'] = {'num_flashcards': num_flashcards}
 
         document = Document.objects.create(
             user=request.user,
@@ -286,6 +289,50 @@ def summary_save_api_view(request, pk):
     document.summary_html = html
     document.save(update_fields=['summary_html'])
     return JsonResponse({'ok': True, 'html': html})
+
+
+@login_required
+@require_POST
+def kit_supplement_api_view(request, pk):
+    """Tahap 2 kit: generate kartu belajar + sumber belajar, gabung ke ai_output.
+
+    Dipanggil otomatis dari workspace bila flashcards masih kosong (pola sama
+    seperti practice/generate). Idempoten: bila sudah ada, kembalikan cache."""
+    document = get_object_or_404(Document, pk=pk)
+    if document.user != request.user:
+        raise PermissionDenied
+
+    ai_output = dict(document.ai_output or {})
+    if ai_output.get('flashcards'):
+        return JsonResponse({
+            'ok': True,
+            'cached': True,
+            'flashcards': ai_output['flashcards'],
+            'resources': ai_output.get('resources') or {},
+        })
+
+    num_flashcards = (ai_output.get('_meta') or {}).get('num_flashcards') or 8
+    try:
+        supplement = build_supplement_kit(
+            document.raw_content,
+            document.user.profile.learning_style,
+            document.education_level,
+            document.grade,
+            num_flashcards,
+            document.language,
+        )
+    except Exception as exc:  # noqa: BLE001 - dikembalikan sebagai pesan ramah
+        return JsonResponse({'error': str(exc)}, status=400)
+
+    ai_output['flashcards'] = supplement.get('flashcards') or []
+    ai_output['resources'] = supplement.get('resources') or {}
+    document.ai_output = ai_output
+    document.save(update_fields=['ai_output'])
+    return JsonResponse({
+        'ok': True,
+        'flashcards': ai_output['flashcards'],
+        'resources': ai_output['resources'],
+    })
 
 
 @login_required

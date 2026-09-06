@@ -20,6 +20,10 @@ MAX_RETRIES = 5
 RETRY_BASE_DELAY = 3
 RETRY_MAX_DELAY = 30
 
+# Batas konteks materi per panggilan AI. Menjaga tiap request selesai < 60 dtk
+# (batas Vercel Hobby) sekaligus memangkas biaya token. 30rb karakter ≈ 7-8rb token.
+KIT_MATERIAL_LIMIT = 30000
+
 FRIENDLY_UNAVAILABLE_MSG = (
     'Layanan AI sedang sibuk (ramai digunakan) dan belum berhasil '
     'meskipun sudah dicoba berkali-kali. Silakan tunggu 1-2 menit lalu '
@@ -227,36 +231,57 @@ def extract_pdf_text(pdf_file):
     return '\n'.join(parts)
 
 
-def build_learning_kit(raw_content, learning_style, education_level, grade, num_flashcards, language='id'):
-    """Satu panggilan Gemini menghasilkan summary, roadmap, flashcards, resources."""
+CORE_KIT_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'summary': LEARNING_KIT_SCHEMA['properties']['summary'],
+        'roadmap': LEARNING_KIT_SCHEMA['properties']['roadmap'],
+    },
+    'required': ['summary', 'roadmap'],
+}
+
+SUPPLEMENT_KIT_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'flashcards': LEARNING_KIT_SCHEMA['properties']['flashcards'],
+        'resources': LEARNING_KIT_SCHEMA['properties']['resources'],
+    },
+    'required': ['flashcards', 'resources'],
+}
+
+
+def _kit_header(learning_style, education_level, grade, language):
+    """Blok konteks bersama (audiens, gaya, bahasa) untuk semua prompt kit."""
     style_prompt = LEARNING_STYLES.get(learning_style, LEARNING_STYLES['detailed'])
     level_prompt = EDUCATION_LEVELS.get(education_level, EDUCATION_LEVELS['umum'])
     language_prompt = OUTPUT_LANGUAGES.get(language, OUTPUT_LANGUAGES['id'])
     grade_label = f' ({grade})' if grade else ''
+    return (
+        f"Target audiens: {education_level}{grade_label}\n"
+        f"{level_prompt}\n"
+        f"Gaya belajar: {style_prompt}\n"
+        f"BAHASA OUTPUT: Seluruh output WAJIB ditulis dalam {language_prompt} "
+        "Terjemahkan dan tulis ulang materi ke bahasa tersebut. JANGAN mengikuti "
+        "bahasa materi input bila berbeda — tetap pakai bahasa output yang diminta.\n"
+        "Pastikan seluruh output valid sebagai JSON murni tanpa teks lain."
+    )
+
+
+def build_core_kit(raw_content, learning_style, education_level, grade, language='id'):
+    """Tahap 1 (cepat): rangkuman + roadmap saja. Dirancang selesai < 60 dtk."""
     prompt = f"""
 Kamu adalah asisten pembelajaran AI bernama AyokBelajar.
 
-Berdasarkan materi di bawah, buat "learning kit" lengkap dengan struktur berikut:
+Berdasarkan materi di bawah, buat bagian inti "learning kit" dengan struktur berikut:
 1. summary: rangkuman materi yang LENGKAP, PADAT, dan MENDALAM dalam format Markdown. JANGAN membuat rangkuman singkat/superficial. Uraikan secara rinci namun tidak bertele-tele.
    JANGAN mengikuti kerangka baku yang sama untuk semua topik (mis. tidak wajib memuat "Pendahuluan → Teori inti → Permasalahan → Proses → Kesimpulan → Glosarium"). Susun rangkuman secara ALAMI seperti catatan belajar yang hidup, mengikuti alur logis materi itu sendiri, dan bervariasi antar topik. Definisi, istilah, prinsip, rumus, proses, contoh penerapan, serta penutup dihadirkan di tempat yang paling natural sesuai alur pembahasan — bukan sebagai daftar bagian template yang kaku dan berulang.
    Tetap gunakan heading & sub-heading bila benar-benar membantu mengelompokkan konsep, dengan susunan yang RAPI, mudah dibaca, dan enak diikuti — sekaligus tidak terasa monoton seperti dokumen template/cetakan. Hindari kesan "jawaban kuis/AI"; tulislah seperti rangkuman yang menuntun pembaca memahami konsep secara berurutan.
 2. roadmap: peta belajar bertahap (3-6 langkah) berupa array objek {{step, title, detail}}.
-3. flashcards: array objek {{question, answer}} sebanyak {num_flashcards} kartu.
-4. resources: objek {{books: [{{title, note}}], articles: [{{title, note}}], search_query}} berisi:
-   - 4 rekomendasi buku yang benar-benar relevan dengan topik,
-   - 4 rekomendasi artikel/web yang relevan,
-   - search_query: satu kalimat kunci pencarian yang efektif untuk menemukan materi lanjutan.
-   Catatan: JANGAN membuat URL asli; cukup judul sumber daya dan catatan singkat (satu kalimat) mengapa berguna.
-   Catatan tambahan tentang mind map: Jika menghasilkan diagram mermaid, HANYA keluarkan syntax Mermaid dalam format kotak putih murni tanpa tambahan markdown code block (``` mermaid ... ```), tanpa label judul tambahan, hanya blok mermaid saja.
 
-Target audiens: {education_level}{grade_label}
-{level_prompt}
-Gaya belajar: {style_prompt}
-BAHASA OUTPUT: Seluruh output WAJIB ditulis dalam {language_prompt} Terjemahkan dan tulis ulang materi ke bahasa tersebut. JANGAN mengikuti bahasa materi input bila berbeda — tetap pakai bahasa output yang diminta.
-Pastikan seluruh output valid sebagai JSON murni tanpa teks lain.
+{_kit_header(learning_style, education_level, grade, language)}
 
 MATERIAL:
-{raw_content[:200000]}
+{raw_content[:KIT_MATERIAL_LIMIT]}
 """
     client = _get_client()
     response = _generate_with_failover(
@@ -265,10 +290,53 @@ MATERIAL:
         config=genai.types.GenerateContentConfig(
             temperature=0.4,
             response_mime_type='application/json',
-            response_schema=LEARNING_KIT_SCHEMA,
+            response_schema=CORE_KIT_SCHEMA,
         ),
     )
     return _parse_json(response.text)
+
+
+def build_supplement_kit(raw_content, learning_style, education_level, grade, num_flashcards, language='id'):
+    """Tahap 2 (cepat): kartu belajar + sumber belajar saja. Dirancang selesai < 60 dtk."""
+    prompt = f"""
+Kamu adalah asisten pembelajaran AI bernama AyokBelajar.
+
+Berdasarkan materi di bawah, buat bagian pelengkap "learning kit" dengan struktur berikut:
+1. flashcards: array objek {{question, answer}} sebanyak {num_flashcards} kartu.
+2. resources: objek {{books: [{{title, note}}], articles: [{{title, note}}], search_query}} berisi:
+   - 4 rekomendasi buku yang benar-benar relevan dengan topik,
+   - 4 rekomendasi artikel/web yang relevan,
+   - search_query: satu kalimat kunci pencarian yang efektif untuk menemukan materi lanjutan.
+   Catatan: JANGAN membuat URL asli; cukup judul sumber daya dan catatan singkat (satu kalimat) mengapa berguna.
+   Catatan tambahan tentang mind map: Jika menghasilkan diagram mermaid, HANYA keluarkan syntax Mermaid dalam format kotak putih murni tanpa tambahan markdown code block (``` mermaid ... ```), tanpa label judul tambahan, hanya blok mermaid saja.
+
+{_kit_header(learning_style, education_level, grade, language)}
+
+MATERIAL:
+{raw_content[:KIT_MATERIAL_LIMIT]}
+"""
+    client = _get_client()
+    response = _generate_with_failover(
+        client.models.generate_content,
+        contents=prompt,
+        config=genai.types.GenerateContentConfig(
+            temperature=0.4,
+            response_mime_type='application/json',
+            response_schema=SUPPLEMENT_KIT_SCHEMA,
+        ),
+    )
+    return _parse_json(response.text)
+
+
+def build_learning_kit(raw_content, learning_style, education_level, grade, num_flashcards, language='id'):
+    """Kit lengkap sekaligus (kompatibilitas mundur + test). Di request HTTP,
+    gunakan alur 2 tahap (build_core_kit lalu build_supplement_kit) agar tiap
+    request muat di batas waktu serverless."""
+    core = build_core_kit(raw_content, learning_style, education_level, grade, language)
+    supplement = build_supplement_kit(
+        raw_content, learning_style, education_level, grade, num_flashcards, language
+    )
+    return {**core, **supplement}
 
 
 def chat_with_document(raw_content, history, education_level='umum', grade='', document_title='', language='id'):

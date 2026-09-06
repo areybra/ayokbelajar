@@ -262,6 +262,36 @@
     return { active: 'summary' };
   };
 
+  window.supplementLoader = function (docId) {
+    return {
+      state: 'idle',
+      error: '',
+      start: function () {
+        var self = this;
+        if (self.state === 'loading') return;
+        self.state = 'loading';
+        self.error = '';
+        fetch('/workspace/' + docId + '/kit/supplement/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data && data.ok) {
+              window.location.reload();
+            } else {
+              self.state = 'error';
+              self.error = (data && data.error) || 'Gagal melengkapi kartu belajar.';
+            }
+          })
+          .catch(function () {
+            self.state = 'error';
+            self.error = 'Gagal terhubung. Coba lagi.';
+          });
+      },
+    };
+  };
+
   window.flashcardDeck = function () {
     var cards = parseJsonScript('flashcards-data') || [];
     var docId = (document.querySelector('[data-document-id]') || {}).dataset.documentId;

@@ -13,6 +13,18 @@
 {{ roadmap|json_script:"roadmap-data" }}
 
 <div id="workspace-root" x-data="tabs()" class="space-y-6">
+  {% if not flashcards %}
+  <div x-data="supplementLoader({{ document.pk }})" x-init="start()" class="rounded-2xl border border-teal-100/70 bg-white p-5 shadow-sm no-print">
+    <div x-show="state === 'loading'" class="flex items-center gap-3">
+      <svg class="h-5 w-5 animate-spin text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+      <p class="text-sm text-slate-600">Melengkapi <strong>kartu belajar &amp; sumber belajar</strong>… halaman akan dimuat ulang otomatis setelah selesai.</p>
+    </div>
+    <div x-show="state === 'error'" x-cloak class="flex flex-wrap items-center gap-3">
+      <p class="text-sm text-rose-600" x-text="error"></p>
+      <button type="button" @click="start()" class="cursor-pointer rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">Coba lagi</button>
+    </div>
+  </div>
+  {% endif %}
   <section class="rounded-2xl border border-teal-100/70 bg-white p-5 shadow-sm sticky top-[3.75rem] z-30 no-print lg:top-2">
     <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
       <div>
