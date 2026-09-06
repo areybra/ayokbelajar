@@ -1,11 +1,11 @@
 # AyokBelajar
-[![Version](https://img.shields.io/badge/version-0.0.5--vercel-blue)](https://github.com/areybra/ayokbelajar/releases)
+[![Version](https://img.shields.io/badge/version-0.0.6--vercel-blue)](https://github.com/areybra/ayokbelajar/releases)
 
 Aplikasi belajar interaktif berbasis **Django 5.2** yang mengubah materi belajar (teks, PDF, YouTube)
 menjadi paket belajar lengkap: **rangkuman, peta pikiran, peta belajar (roadmap), kartu belajar, dan latihan soal** —
 semuanya dihasilkan oleh **Google Gemini API**. Plus **chat dengan dokumen** untuk bertanya langsung tentang materi.
 
-> Status: **Development** — Versi 0.0.5 (fix error Vercel `Function Runtimes must have a valid version`: hapus `runtime` dari `functions`, kunci Python via `.python-version`).
+> Status: **Development** — Versi 0.0.6 (fix build Vercel `Can not find valid pkg-config name`: `requirements.txt` PyMySQL-only, `mysqlclient` pindah ke opsional `requirements-vps.txt`).
 
 ## Fitur
 
@@ -198,9 +198,9 @@ sudo apt update && sudo apt install -y python3.12-venv default-libmysqlclient-de
 git clone https://github.com/areybra/ayokbelajar.git
 cd ayokbelajar
 
-# 3. Venv + deps
+# 3. Venv + deps (tambah -r requirements-vps.txt bila mau driver mysqlclient biner)
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-vps.txt
 
 # 4. Env produksi (lihat contoh di atas)
 cp .env.example .env
@@ -298,7 +298,7 @@ Vercel filesystem read-only/ephemeral → **jangan pakai SQLite**. Gunakan MySQL
 3. Isi **Environment Variables** di Vercel (Production + Preview):
    `DEBUG=False`, `SECRET_KEY`, `ALLOWED_HOSTS=.vercel.app,yourdomain.com`, `CSRF_TRUSTED_ORIGINS=https://yourdomain.com`, `DATABASE_URL=mysql://user:pass@host:3306/dbname`, `GOOGLE_API_KEY`, `BEHIND_PROXY=True`.
    Vercel otomatis set `VERCEL=1` dan `VERCEL_URL`, sehingga `settings.py` auto-append `.vercel.app`.
-4. MySQL di Vercel: `mysqlclient` butuh lib sistem yang tidak ada di serverless → repo sudah menyertakan fallback murni-Python `PyMySQL==1.1.1` + shim `pymysql.install_as_MySQLdb()` di `ayokbelajar_proj/__init__.py`, jadi backend Django `mysql` tetap jalan tanpa compiler. Di VPS/shared, `mysqlclient` biner tetap dipakai (lebih cepat).
+4. MySQL di Vercel: `mysqlclient` butuh `pkg-config` + `libmysqlclient` sistem yang tidak ada di serverless (error `Can not find valid pkg-config name`) → `requirements.txt` kini **PyMySQL-only** (`PyMySQL==1.1.1` + shim `pymysql.install_as_MySQLdb()` di `ayokbelajar_proj/__init__.py`), jadi backend Django `mysql` tetap jalan tanpa compiler di semua hosting.
 5. Deploy. Batasan: cold start + `maxDuration: 60` — untuk trafik produksi serius, VPS tetap disarankan.
 
 ### 4. PaaS / Docker (Render / Railway / Fly / VPS-Docker)
@@ -346,7 +346,8 @@ ayokbelajar_proj/
 │   └── templates/core/   # Template halaman (dashboard, workspace, library, dst.)
 ├── templates/            # Base layout & auth
 ├── static/core/js/       # JS client (export, flashcards, ujian, chat, editor)
-├── requirements.txt      # Dependency (mysqlclient + fallback PyMySQL untuk MySQL)
+├── requirements.txt      # Dependency (PyMySQL untuk MySQL — aman Vercel/VPS/shared)
+├── requirements-vps.txt  # Opsional VPS: tambah mysqlclient biner (jangan dipakai di Vercel)
 ├── rules.md              # Pedoman UI/UX proyek
 ├── Procfile              # gunicorn (VPS/PaaS)
 ├── vercel.json           # deploy Vercel modern: buildCommand+functions(maxDuration)+rewrites (diabaikan di VPS/shared)

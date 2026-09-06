@@ -32,7 +32,7 @@ dihasilkan oleh **Google Gemini API**. Tambahan: **chat dengan dokumen** untuk b
 | HTTP | `httpx` |
 | Web server prod | `gunicorn` + `whitenoise` 6.12.0 (statics) |
 | Admin panel | `django-jazzmin` 3.0.5 (tema `flatly` + brand teal, dark mode `auto`) |
- | DB prod | `mysqlclient` (MySQL 8.x) via `dj-database-url` (`DATABASE_URL`) |
+ | DB prod | `PyMySQL` (MySQL 8.x, murni-Python) via `dj-database-url` (`DATABASE_URL`); `mysqlclient` opsional via `requirements-vps.txt` |
  | Env loader | `python-dotenv` |
 
 > **Catatan penting:** `requirements.txt` di-encode **UTF-8 dengan BOM** dan baris
@@ -49,7 +49,8 @@ deploy tanpa Docker (lihat README > Deployment).
 C:\yok\ayokbelajar_proj\
 ├── manage.py
 ├── .env                        <- KONFIGURASI RAHASIA NYATA (dibaca settings.py)
- ├── requirements.txt            <- MySQL via mysqlclient + dj-database-url
+ ├── requirements.txt            <- MySQL via PyMySQL + dj-database-url (aman Vercel)
+ ├── requirements-vps.txt        <- opsional VPS: tambah mysqlclient biner
  ├── Procfile                     <- gunicorn
  ├── ayokbelajar_proj\
  │   └── settings.py             <- load_dotenv(BASE_DIR / '.env'); DATABASES via dj_database_url (mysql://)
@@ -250,7 +251,7 @@ Verifikasi manual setelah perubahan: login, proses materi (3 sumber), buka works
 - `python manage.py collectstatic` hanya untuk produksi; ada warning `staticfiles/` belum ada di dev — wajar.
 - **jangan regresi:** jangan kembalikan pemanggilan YouTube ke `YouTubeTranscriptApi.list_transcripts()` —
   API itu dihapus di `youtube-transcript-api` 1.2.4; gunakan instance `.list()`.
- - **Production DB:** MySQL 8.x via `DATABASE_URL` (`mysql://...`) — `mysqlclient==2.2.7` (`requirements.txt`).
+ - **Production DB:** MySQL 8.x via `DATABASE_URL` (`mysql://...`) — driver `PyMySQL==1.1.1` (`requirements.txt`, shim di `__init__.py`); `mysqlclient==2.2.7` hanya opsional VPS via `requirements-vps.txt` (gagal build di Vercel: `Can not find valid pkg-config name`).
  - **Belum dikerjakan:** payment/upgrade paket (harga di landing hanya mock).
 - Baca `AGENTS.md` di `C:\yok` untuk aturan koding yang wajib dipatuhi (Django 5.x, minimal perubahan,
   test wajib, no hardcode secret). Pedoman UI: `rules.md` di root proyek.

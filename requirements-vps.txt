@@ -1,0 +1,6 @@
+# Opsional khusus VPS (driver MySQL biner, lebih cepat).
+# Vercel/shared hosting JANGAN pakai file ini (gagal build: butuh libmysqlclient sistem).
+# Cara pakai di VPS: pip install -r requirements.txt -r requirements-vps.txt
+# (butuh paket sistem: default-libmysqlclient-dev gcc pkg-config)
+-r requirements.txt
+mysqlclient==2.2.7
