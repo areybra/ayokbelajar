@@ -1,11 +1,11 @@
 # AyokBelajar
-[![Version](https://img.shields.io/badge/version-0.0.6--vercel-blue)](https://github.com/areybra/ayokbelajar/releases)
+[![Version](https://img.shields.io/badge/version-0.0.7--vercel-blue)](https://github.com/areybra/ayokbelajar/releases)
 
 Aplikasi belajar interaktif berbasis **Django 5.2** yang mengubah materi belajar (teks, PDF, YouTube)
 menjadi paket belajar lengkap: **rangkuman, peta pikiran, peta belajar (roadmap), kartu belajar, dan latihan soal** —
 semuanya dihasilkan oleh **Google Gemini API**. Plus **chat dengan dokumen** untuk bertanya langsung tentang materi.
 
-> Status: **Development** — Versi 0.0.6 (fix build Vercel `Can not find valid pkg-config name`: `requirements.txt` PyMySQL-only, `mysqlclient` pindah ke opsional `requirements-vps.txt`).
+> Status: **Development** — Versi 0.0.7 (fix bundle Vercel > 225 MB: `requirements.txt` dirampingkan ke dependensi langsung saja, ±143 MB; SDK Google legacy yang tak terpakai dibuang).
 
 ## Fitur
 
@@ -346,7 +346,7 @@ ayokbelajar_proj/
 │   └── templates/core/   # Template halaman (dashboard, workspace, library, dst.)
 ├── templates/            # Base layout & auth
 ├── static/core/js/       # JS client (export, flashcards, ujian, chat, editor)
-├── requirements.txt      # Dependency (PyMySQL untuk MySQL — aman Vercel/VPS/shared)
+├── requirements.txt      # HANYA dependensi langsung (ramping ±143 MB agar bundle Vercel < 225 MB)
 ├── requirements-vps.txt  # Opsional VPS: tambah mysqlclient biner (jangan dipakai di Vercel)
 ├── rules.md              # Pedoman UI/UX proyek
 ├── Procfile              # gunicorn (VPS/PaaS)
