@@ -1,11 +1,11 @@
 # AyokBelajar
-[![Version](https://img.shields.io/badge/version-0.0.7--vercel-blue)](https://github.com/areybra/ayokbelajar/releases)
+[![Version](https://img.shields.io/badge/version-0.0.8--fix-blue)](https://github.com/areybra/ayokbelajar/releases)
 
 Aplikasi belajar interaktif berbasis **Django 5.2** yang mengubah materi belajar (teks, PDF, YouTube)
 menjadi paket belajar lengkap: **rangkuman, peta pikiran, peta belajar (roadmap), kartu belajar, dan latihan soal** —
 semuanya dihasilkan oleh **Google Gemini API**. Plus **chat dengan dokumen** untuk bertanya langsung tentang materi.
 
-> Status: **Development** — Versi 0.0.7 (fix bundle Vercel > 225 MB: `requirements.txt` dirampingkan ke dependensi langsung saja, ±143 MB; SDK Google legacy yang tak terpakai dibuang).
+> Status: **Development** — Versi 0.0.8 (fix register 500 di produksi: buang `OPTIONS sslmode` untuk MySQL; SSL MySQL via `?ssl-ca=`).
 
 ## Fitur
 
@@ -139,7 +139,7 @@ Verifikasi manual: register → login → isi preferensi → proses materi (teks
 | `GEMINI_MODEL` | Model Gemini, mis. `gemini-flash-latest` |
 | `GEMINI_FALLBACK_MODELS` | Model cadangan (dipisah koma), mis. `gemini-2.5-flash,gemini-2.5-flash-lite` (opsional) |
 | `FREE_MONTHLY_DOCUMENT_LIMIT` | Kuota study kit per bulan paket Free (default `3`, opsional) |
-| `DATABASE_URL` | Kosongkan untuk SQLite dev (`DEBUG=True`); isi di produksi MySQL: `mysql://user:password@host:3306/dbname` |
+| `DATABASE_URL` | Kosongkan untuk SQLite dev (`DEBUG=True`); isi di produksi MySQL: `mysql://user:password@host:3306/dbname`. Butuh SSL (PlanetScale): tambah `?ssl-ca=/etc/ssl/certs/ca-certificates.crt`. Jangan pakai `?sslmode=` (500 di MySQL) |
 | `DEBUG` | `True` lokal, `False` di semua hosting produksi (VPS/shared/Vercel) |
 | `ALLOWED_HOSTS` | Host yang diizinkan, pisah koma. Mis. lokal `localhost,127.0.0.1`, produksi `yourdomain.com,www.yourdomain.com` |
 | `CSRF_TRUSTED_ORIGINS` | **Wajib** saat `DEBUG=False` + HTTPS: `https://yourdomain.com,https://www.yourdomain.com` |

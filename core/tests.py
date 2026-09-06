@@ -808,3 +808,35 @@ class AuthNativeTests(TestCase):
         # OAuth Supabase sudah dihapus — harus 404
         self.assertEqual(self.client.get('/oauth/google/').status_code, 404)
         self.assertEqual(self.client.get('/oauth/callback/').status_code, 404)
+
+
+class MysqlOptionsTests(TestCase):
+    """Regresi: register 500 di produksi karena OPTIONS `sslmode` (sintaks Postgres)
+    ditolak driver MySQL dengan TypeError. Lihat _fix_mysql_options di settings."""
+
+    def test_fix_mysql_options_removes_sslmode(self):
+        import dj_database_url
+        from ayokbelajar_proj.settings import _fix_mysql_options
+        cfg = _fix_mysql_options(dj_database_url.parse(
+            'mysql://u:p@localhost:3306/db', conn_max_age=60, ssl_require=True
+        ))
+        self.assertEqual(cfg['ENGINE'], 'django.db.backends.mysql')
+        self.assertNotIn('sslmode', cfg.get('OPTIONS', {}))
+
+    def test_fix_mysql_options_keeps_ssl_ca(self):
+        import dj_database_url
+        from ayokbelajar_proj.settings import _fix_mysql_options
+        cfg = _fix_mysql_options(dj_database_url.parse(
+            'mysql://u:p@host:3306/db?ssl-ca=/etc/ssl/certs/ca-certificates.crt',
+            ssl_require=True,
+        ))
+        self.assertNotIn('sslmode', cfg.get('OPTIONS', {}))
+        self.assertEqual(
+            cfg['OPTIONS'].get('ssl'),
+            {'ca': '/etc/ssl/certs/ca-certificates.crt'},
+        )
+
+    def test_fix_mysql_options_leaves_non_mysql_untouched(self):
+        from ayokbelajar_proj.settings import _fix_mysql_options
+        cfg = {'ENGINE': 'django.db.backends.sqlite3', 'NAME': 'db.sqlite3'}
+        self.assertEqual(_fix_mysql_options(cfg), cfg)

@@ -145,6 +145,24 @@ WSGI_APPLICATION = 'ayokbelajar_proj.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 # Dev & test: SQLite. Produksi: MySQL 8.x via DATABASE_URL (mysql://).
 # Contoh: mysql://user:password@db-host:3306/nama_database
+# Butuh SSL (mis. PlanetScale): mysql://user:pass@host:3306/db?ssl-ca=/etc/ssl/certs/ca-certificates.crt
+
+
+def _fix_mysql_options(config):
+    """Buang OPTIONS `sslmode` untuk engine MySQL.
+
+    `dj-database-url` menyuntik `OPTIONS['sslmode'] = 'require'` saat
+    `ssl_require=True` — itu sintaks Postgres. Driver MySQL (PyMySQL maupun
+    mysqlclient) menolak kwarg tersebut dengan TypeError, sehingga SEMUA
+    query DB produksi 500 (landing lolos karena tanpa query DB; register
+    adalah halaman pertama yang tulis DB). Untuk SSL MySQL pakai
+    `?ssl-ca=` di DATABASE_URL (dipetakan ke `ssl={'ca': ...}` yang valid
+    untuk kedua driver).
+    """
+    if config.get('ENGINE') == 'django.db.backends.mysql':
+        config.get('OPTIONS', {}).pop('sslmode', None)
+    return config
+
 
 if 'test' in sys.argv:
     DATABASES = {
@@ -154,7 +172,7 @@ if 'test' in sys.argv:
         }
     }
 elif os.getenv('DATABASE_URL'):
-    DATABASES = {'default': dj_database_url.config(conn_max_age=60, ssl_require=not DEBUG)}
+    DATABASES = {'default': _fix_mysql_options(dj_database_url.config(conn_max_age=60, ssl_require=not DEBUG))}
 else:
     # Produksi (DEBUG=False) wajib DATABASE_URL — SQLite tidak cocok untuk MySQL hosting.
     if not DEBUG:

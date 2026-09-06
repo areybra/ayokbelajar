@@ -229,6 +229,7 @@ File yang dibaca: **`C:\yok\ayokbelajar_proj\.env`** (bukan `C:\yok\.env` yang s
 | 18 | Dark mode (sebelumnya ditunda) | Toggle tema di sidebar/navbar (localStorage `ayok-theme`, opsi light/dark/system di Settings); layer CSS override `.dark` + `darkMode:'class'`; print paksa terang | `base.html`, `_theme_toggle.html`, `settings.html`, `landing.html`, `workspace.html`, `app.js` |
 | 19 | Export terpisah-pisah di header workspace | Gabung jadi dropdown "Export": Rangkuman (.md), Anki CSV, Paket Lengkap (.md), Latihan Soal (.md), Cetak PDF | `workspace.html`, `app.js` (`downloadKit`, `downloadExam`, `exportPanel`) |
 | 20 | Admin polos bawaan Django | Integrasi `django-jazzmin` 3.0.5 (tema `flatly` + brand teal `#0D9488`, dark mode `auto`, sidebar `dark-primary`, logo `static/img/ayok-logo.svg`); `core/admin.py` didesain ulang (list/filter/search/date_hierarchy, pratinjau AI, `UserActivity` ikut terdaftar) | `settings.py` (`JAZZMIN_SETTINGS`, `JAZZMIN_UI_TWEAKS`), `static/jazzmin/admin.css`, `static/img/ayok-logo.svg`, `core/admin.py` |
+| 21 | Register 500 di produksi (lokal OK) | `dj-database-url` menyuntik `OPTIONS sslmode=require` (sintaks Postgres) saat `ssl_require=True` → ditolak driver MySQL (TypeError) di semua query DB; `_fix_mysql_options()` membuangnya khusus engine mysql; SSL MySQL via `?ssl-ca=` | `settings.py` (`_fix_mysql_options`), `tests.py` (`MysqlOptionsTests`) |
 
 ---
 
