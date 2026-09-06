@@ -1,11 +1,11 @@
 # AyokBelajar
-[![Version](https://img.shields.io/badge/version-0.0.4--vercel-blue)](https://github.com/areybra/ayokbelajar/releases)
+[![Version](https://img.shields.io/badge/version-0.0.5--vercel-blue)](https://github.com/areybra/ayokbelajar/releases)
 
 Aplikasi belajar interaktif berbasis **Django 5.2** yang mengubah materi belajar (teks, PDF, YouTube)
 menjadi paket belajar lengkap: **rangkuman, peta pikiran, peta belajar (roadmap), kartu belajar, dan latihan soal** —
 semuanya dihasilkan oleh **Google Gemini API**. Plus **chat dengan dokumen** untuk bertanya langsung tentang materi.
 
-> Status: **Development** — Versi 0.0.4 (fix warning Vercel `unused-build-settings`: `vercel.json` modern tanpa `builds`/`routes`, entrypoint `api/index.py`, fallback `PyMySQL` untuk MySQL di serverless).
+> Status: **Development** — Versi 0.0.5 (fix error Vercel `Function Runtimes must have a valid version`: hapus `runtime` dari `functions`, kunci Python via `.python-version`).
 
 ## Fitur
 
@@ -293,7 +293,7 @@ Troubleshooting shared hosting: 500 setelah deploy → cek log Python App (biasa
 
 Vercel filesystem read-only/ephemeral → **jangan pakai SQLite**. Gunakan MySQL eksternal (PlanetScale / Railway / Aiven) yang reachable dari internet.
 
-1. `vercel.json` modern (tanpa `builds`/`routes` lawas) + entrypoint `api/index.py` sudah tersedia di repo — diabaikan di VPS/shared. Format baru memakai `buildCommand` + `functions` + `rewrites`, sehingga **warning `unused-build-settings` hilang** dan setting di Vercel Dashboard kembali berlaku.
+1. `vercel.json` modern (tanpa `builds`/`routes` lawas) + entrypoint `api/index.py` + `.python-version` (3.12) sudah tersedia di repo — diabaikan di VPS/shared. Format baru memakai `buildCommand` + `functions` (`maxDuration` saja, tanpa `runtime` — versi Python dikunci via `.python-version`, bukan `runtime: python3.12` yang ditolak CLI dengan error `Function Runtimes must have a valid version`) + `rewrites`, sehingga **warning `unused-build-settings` hilang** dan setting di Vercel Dashboard kembali berlaku.
 2. Import repo GitHub di Vercel → Framework **Other** → Build Command dikunci dari `vercel.json` (`python manage.py collectstatic --noinput`), Output Directory `staticfiles`.
 3. Isi **Environment Variables** di Vercel (Production + Preview):
    `DEBUG=False`, `SECRET_KEY`, `ALLOWED_HOSTS=.vercel.app,yourdomain.com`, `CSRF_TRUSTED_ORIGINS=https://yourdomain.com`, `DATABASE_URL=mysql://user:pass@host:3306/dbname`, `GOOGLE_API_KEY`, `BEHIND_PROXY=True`.
@@ -349,7 +349,8 @@ ayokbelajar_proj/
 ├── requirements.txt      # Dependency (mysqlclient + fallback PyMySQL untuk MySQL)
 ├── rules.md              # Pedoman UI/UX proyek
 ├── Procfile              # gunicorn (VPS/PaaS)
-├── vercel.json           # deploy Vercel modern: buildCommand+functions+rewrites (diabaikan di VPS/shared)
+├── vercel.json           # deploy Vercel modern: buildCommand+functions(maxDuration)+rewrites (diabaikan di VPS/shared)
+├── .python-version       # kunci Python 3.12 untuk Vercel (jangan pakai `runtime` di vercel.json)
 ├── api/index.py          # entrypoint serverless Vercel → import wsgi.application
 └── .env                  # Rahasia — JANGAN di-commit
 ```
