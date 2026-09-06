@@ -64,13 +64,22 @@ def authorize_url(provider, redirect_to):
 
 def exchange_code(code, code_verifier):
     """Tukar authorization code menjadi session/user Supabase (PKCE)."""
+    # Di Vercel, timeout terlalu singkat bisa 500 cold start — beri 20s tetap, tapi log detail saat gagal
     response = httpx.post(
         f'{_base_url()}/auth/v1/token?grant_type=pkce',
         headers=_headers(),
         json={'auth_code': code, 'code_verifier': code_verifier},
         timeout=20,
     )
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        # Supabase balikan body JSON berisi msg — lempar dengan detail supaya tidak jadi 500 generik
+        try:
+            detail = response.json()
+        except Exception:
+            detail = response.text[:500]
+        raise RuntimeError(f'Supabase token exchange gagal ({response.status_code}): {detail}') from exc
     return response.json()
 
 

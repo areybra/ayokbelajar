@@ -32,7 +32,62 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-only-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = [h for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h]
+# --- Deploy universal: VPS / Shared Hosting / Vercel / PaaS ---
+# Atur via .env / env vars hosting — tidak hardcode domain vercel saja.
+# Contoh produksi:
+#   ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+#   CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+# Untuk Vercel cukup set ALLOWED_HOSTS=.vercel.app,yourdomain.com (atau biarkan auto-append di bawah).
+ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
+
+# Auto-append Vercel host bila detect env Vercel (tidak merusak VPS/shared hosting — hanya tambah bila perlu)
+if os.getenv('VERCEL') and '.vercel.app' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('.vercel.app')
+
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()]
+# Auto-append https://<VERCEL_URL> bila belum di-set (support preview deploy tanpa ubah env manual)
+if os.getenv('VERCEL_URL'):
+    _vercel_host = f"https://{os.getenv('VERCEL_URL')}"
+    if _vercel_host not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_vercel_host)
+
+# Proxy header: aktifkan bila di belakang proxy HTTPS (Vercel, Nginx, Cloudflare, cPanel).
+# Set env BEHIND_PROXY=True di hosting yang pakai reverse proxy agar build_absolute_uri() jadi https://
+# (penting untuk Supabase OAuth redirect_to — bila http vs https mismatch, Supabase 400).
+if os.getenv('VERCEL') or os.getenv('BEHIND_PROXY', '').lower() in ('true', '1', 'yes') or os.getenv('DATABASE_URL'):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    USE_X_FORWARDED_HOST = True
+
+# Cookie secure hanya saat HTTPS (DEBUG=False). Di shared hosting tanpa HTTPS tetap Lax agar tidak hilang.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+SECURE_SSL_REDIRECT = False  # jangan paksa redirect di app-level (urus di Nginx/Cloudflare/hosting)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'core.supabase_auth': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 # Google Gemini
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', '')
@@ -109,8 +164,17 @@ if 'test' in sys.argv:
         }
     }
 elif os.getenv('DATABASE_URL'):
-    DATABASES = {'default': dj_database_url.config(conn_max_age=60)}
+    DATABASES = {'default': dj_database_url.config(conn_max_age=60, ssl_require=not DEBUG)}
 else:
+    # Produksi (DEBUG=False) wajib DATABASE_URL — SQLite di filesystem PaaS/Vercel
+    # bersifat read-only/ephemeral dan pasti 500 (OperationalError: attempt to write a readonly database).
+    # VPS/shared hosting: tetap set DATABASE_URL ke mysql:// atau postgres:// eksternal.
+    if not DEBUG:
+        import logging as _logging
+        _logging.warning(
+            'DATABASE_URL kosong saat DEBUG=False — fallback ke SQLite akan gagal di hosting '
+            'read-only (Vercel) / tidak persisten. Set DATABASE_URL di env hosting.'
+        )
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
