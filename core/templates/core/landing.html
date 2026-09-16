@@ -30,14 +30,14 @@
   <div class="pointer-events-none absolute -top-24 right-0 h-72 w-72 rounded-full bg-teal-100 blur-3xl anim-float-slow" aria-hidden="true"></div>
   <div class="pointer-events-none absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-emerald-100 blur-3xl" aria-hidden="true"></div>
 
-  <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:py-28">
-    <div class="grid items-center gap-14 lg:grid-cols-2">
+  <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20 lg:py-28">
+    <div class="grid items-center gap-10 sm:gap-14 lg:grid-cols-2">
       <div>
         <p class="anim-fade-in-up mb-4 inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
           <span class="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden="true"></span>
           Didukung AI canggih
         </p>
-        <h1 class="anim-fade-in-up text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl" style="animation-delay: 80ms">
+        <h1 class="anim-fade-in-up text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl" style="animation-delay: 80ms">
           Ubah Teks, PDF, &amp; YouTube Jadi<br class="hidden sm:block">
           <span class="bg-gradient-to-r from-teal-600 to-emerald-500 bg-clip-text text-transparent">Kit Belajar Interaktif</span>
         </h1>
@@ -58,7 +58,7 @@
             Lihat Demo
           </a>
         </div>
-        <dl class="anim-fade-in-up mt-10 flex gap-8 border-t border-teal-100 pt-6" style="animation-delay: 320ms">
+        <dl class="anim-fade-in-up mt-10 flex flex-wrap gap-x-8 gap-y-4 border-t border-teal-100 pt-6" style="animation-delay: 320ms">
           <div>
             <dt class="text-sm text-slate-500">Sumber materi</dt>
             <dd class="text-xl font-bold tabular-nums text-slate-900">3</dd>
@@ -84,11 +84,11 @@
             <span class="text-xs font-medium text-slate-400">workspace / rangkuman</span>
           </div>
           <div class="mt-4 space-y-3">
-            <div class="flex gap-2">
-              <span class="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">Rangkuman</span>
-              <span class="cursor-pointer rounded-md bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700">Peta Belajar</span>
-              <span class="cursor-pointer rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">Kartu Belajar</span>
-              <span class="cursor-pointer rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">Latihan Soal</span>
+            <div class="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 py-0.5">
+              <span class="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 text-slate-500">Rangkuman</span>
+              <span class="cursor-pointer whitespace-nowrap rounded-md bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700 shrink-0">Peta Belajar</span>
+              <span class="cursor-pointer rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 text-slate-500">Kartu Belajar</span>
+              <span class="cursor-pointer rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 text-slate-500">Latihan Soal</span>
             </div>
             <div class="space-y-2 rounded-xl bg-slate-50 p-4">
               <div class="h-3 w-3/4 rounded bg-slate-300"></div>
@@ -123,8 +123,8 @@
 </section>
 
 <section class="border-t border-teal-100 bg-white">
-  <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-    <h2 class="text-center text-3xl font-bold text-slate-900">Kenapa AyokBelajar?</h2>
+  <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20">
+    <h2 class="text-center text-2xl font-bold text-slate-900 sm:text-3xl">Kenapa AyokBelajar?</h2>
     <p class="mx-auto mt-3 max-w-2xl text-center text-lg text-slate-500">
       Satu alur kerja sederhana untuk mengubah sumber belajar apapun menjadi alat aktif mengingat.
     </p>
@@ -155,8 +155,8 @@
 </section>
 
 <section id="demo" class="border-t border-teal-100 bg-teal-50/40">
-  <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-    <h2 class="text-center text-3xl font-bold text-slate-900">Coba langsung</h2>
+  <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20">
+    <h2 class="text-center text-2xl font-bold text-slate-900 sm:text-3xl">Coba langsung</h2>
     <p class="mx-auto mt-3 max-w-2xl text-center text-lg text-slate-500">Putar kartu dengan klik atau tekan spasi.</p>
     <div class="reveal mx-auto mt-12 max-w-lg" x-data="landingFlashcard()">
       <div class="h-64 cursor-pointer [perspective:1000px]" @click="flip = !flip">

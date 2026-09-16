@@ -25,7 +25,7 @@
     </div>
   </div>
   {% endif %}
-  <section class="rounded-2xl border border-teal-100/70 bg-white p-5 shadow-sm sticky top-[3.75rem] z-30 no-print lg:top-2">
+  <section class="rounded-2xl border border-teal-100/70 bg-white p-4 shadow-sm sticky top-[3.75rem] z-30 no-print sm:p-5 lg:top-2">
     <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
       <div>
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
@@ -45,7 +45,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
           </button>
           <div x-show="open" x-cloak x-transition.opacity.duration.150ms role="menu" aria-label="Opsi export materi"
-               class="absolute right-0 z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+               class="absolute right-0 z-30 mt-2 w-[min(18rem,calc(100vw-2.5rem))] rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
             <p class="px-2 pb-1 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Export materi</p>
             <button type="button" role="menuitem" @click="exportAll('markdown')"
                     class="flex w-full cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2 text-left transition-colors duration-150 hover:bg-slate-50">
@@ -93,19 +93,19 @@
       </div>
     </div>
 
-    <nav class="no-print mt-5 flex gap-1 overflow-x-auto border-b border-slate-200" aria-label="Bagian materi">
-      <button type="button" @click="active='summary'" class="cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='summary' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Rangkuman</button>
-      <button type="button" @click="active='mindmap'; Ayok.renderMindmap()" class="cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='mindmap' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Peta Pikiran</button>
-      <button type="button" @click="active='roadmap'" class="cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='roadmap' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Peta Belajar</button>
-      <button type="button" @click="active='flashcards'" class="cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='flashcards' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Kartu Belajar</button>
-      <button type="button" @click="active='exam'" class="cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='exam' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Latihan Soal</button>
-      <button type="button" @click="active='resources'" class="cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='resources' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Sumber Belajar</button>
+    <nav class="no-print no-scrollbar -mx-4 mt-5 flex gap-1 overflow-x-auto border-b border-slate-200 px-4 sm:mx-0 sm:px-0" aria-label="Bagian materi">
+      <button type="button" @click="active='summary'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='summary' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Rangkuman</button>
+      <button type="button" @click="active='mindmap'; Ayok.renderMindmap()" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='mindmap' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Peta Pikiran</button>
+      <button type="button" @click="active='roadmap'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='roadmap' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Peta Belajar</button>
+      <button type="button" @click="active='flashcards'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='flashcards' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Kartu Belajar</button>
+      <button type="button" @click="active='exam'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='exam' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Latihan Soal</button>
+      <button type="button" @click="active='resources'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='resources' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Sumber Belajar</button>
     </nav>
   </section>
 
   <section x-show="active==='summary'" x-cloak x-transition.opacity.duration.150ms>
-    <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm" data-document-id="{{ document.pk }}" x-data="summaryEditor()">
-      <div class="mb-4 flex items-center justify-between">
+    <div class="rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm sm:p-6" data-document-id="{{ document.pk }}" x-data="summaryEditor()">
+      <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="text-lg font-bold text-slate-900">Rangkuman Materi</h2>
         <button type="button" @click="openEditor()" class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors duration-200 hover:border-slate-400">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /></svg>
@@ -167,20 +167,20 @@
   </section>
 
   <section x-show="active==='mindmap'" x-cloak x-transition.opacity.duration.150ms>
-    <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
-      <div class="mb-4 flex items-center justify-between">
+    <div class="rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm sm:p-6">
+      <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="text-lg font-bold text-slate-900">Peta Pikiran Interaktif</h2>
-        <span class="text-xs text-slate-400">Zoom: roda mouse · Geser: drag · Simpul bisa dilipat</span>
+        <span class="text-xs text-slate-400">Zoom: cubit/roda mouse · Geser: drag · Simpul bisa dilipat</span>
       </div>
-      <div id="mindmap-container" class="mindmap-box h-[70vh] min-h-[400px] overflow-hidden rounded-lg border border-slate-100 bg-white">
+      <div id="mindmap-container" class="mindmap-box h-[60vh] min-h-[320px] overflow-hidden rounded-lg border border-slate-100 bg-white sm:h-[70vh] sm:min-h-[400px]">
       </div>
       {% if not summary %}<p class="mt-3 text-sm text-slate-500">Belum ada rangkuman untuk dibuat mind map.</p>{% endif %}
     </div>
   </section>
 
   <section x-show="active==='roadmap'" x-cloak x-transition.opacity.duration.150ms>
-    <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
-      <div class="mb-4 flex items-center justify-between">
+    <div class="rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm sm:p-6">
+      <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="text-lg font-bold text-slate-900">Peta Belajar</h2>
         <span class="text-sm font-medium text-slate-500" id="roadmap-progress">0 langkah selesai</span>
       </div>
@@ -243,7 +243,7 @@
           </div>
           <div class="h-72 cursor-pointer [perspective:1000px]" @click="flipped = !flipped">
             <div class="relative h-full w-full transition-transform duration-500 [transform-style:preserve-3d]" :class="flipped && '[transform:rotateY(180deg)]'">
-              <div class="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border border-slate-200/70 bg-white p-8 text-center shadow-sm [backface-visibility:hidden]">
+              <div class="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border border-slate-200/70 bg-white p-6 text-center shadow-sm sm:p-8 [backface-visibility:hidden]">
                 <span class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Pertanyaan</span>
                 <p class="text-lg font-semibold text-slate-900" x-text="current.question"></p>
               </div>
@@ -255,13 +255,13 @@
           </div>
           <p class="mt-3 text-center text-xs text-slate-400">Klik kartu untuk membalik</p>
 
-          <div class="mt-6 flex items-center justify-between">
+          <div class="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <button type="button" @click="prev()"
-                    class="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:border-slate-400">← Sebelumnya</button>
+                    class="min-h-[44px] cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:border-slate-400">← Sebelumnya</button>
             <button type="button" @click="flip()"
-                    class="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">Balik</button>
+                    class="min-h-[44px] cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover">Balik</button>
             <button type="button" @click="next()"
-                    class="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:border-slate-400">Berikutnya →</button>
+                    class="min-h-[44px] cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:border-slate-400">Berikutnya →</button>
           </div>
 
           <div class="mt-4 grid grid-cols-2 gap-2">
@@ -314,7 +314,7 @@
               <span x-text="activeSession ? activeSession.title : 'Pilih sesi...'"></span>
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
             </button>
-            <div x-show="open" x-cloak class="absolute right-0 z-10 mt-2 max-h-80 w-80 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+            <div x-show="open" x-cloak class="absolute right-0 z-10 mt-2 max-h-80 w-[min(20rem,calc(100vw-2.5rem))] overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
               <p class="px-2 pb-1 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Klik untuk belajar ulang</p>
               <template x-for="s in sessions" :key="s.id">
                 <div class="group flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-slate-50">
@@ -335,7 +335,7 @@
       </div>
 
       <template x-if="!questions.length && !generating">
-        <div class="rounded-2xl border border-slate-200/70 bg-white p-8 text-center shadow-sm">
+        <div class="rounded-2xl border border-slate-200/70 bg-white p-6 text-center shadow-sm sm:p-8">
           <p class="text-base font-semibold text-slate-900">Latihan Soal 20 Soal</p>
           <p class="mx-auto mt-2 max-w-md text-sm text-slate-500">
             Latihan dibuat AI persis 20 soal pilihan ganda dari materi ini, lengkap dengan
@@ -351,7 +351,7 @@
       </template>
 
       <template x-if="generating">
-        <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm" aria-label="AI sedang menyusun soal latihan" role="status">
+        <div class="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm sm:p-6" aria-label="AI sedang menyusun soal latihan" role="status">
           <div class="mb-5 flex items-center justify-between border-b border-slate-100 pb-4">
             <div class="skeleton h-5 w-40"></div>
             <div class="skeleton h-5 w-24"></div>
@@ -388,7 +388,7 @@
       </template>
 
       <template x-if="questions.length && !running && !finished">
-        <div class="rounded-2xl border border-slate-200/70 bg-white p-8 text-center shadow-sm">
+        <div class="rounded-2xl border border-slate-200/70 bg-white p-6 text-center shadow-sm sm:p-8">
           <p class="text-base font-semibold text-slate-900">Latihan Soal Siap</p>
           <p class="mx-auto mt-2 max-w-md text-sm text-slate-500">
             Terdapat <span x-text="questions.length"></span> soal pilihan ganda. Waktu pengerjaan
@@ -402,8 +402,8 @@
       </template>
 
       <template x-if="questions.length && running && !finished">
-        <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
-          <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+        <div class="rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm sm:p-6">
+          <div class="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div>
               <h2 class="text-lg font-bold text-slate-900">Latihan Soal</h2>
               <p class="mt-0.5 text-xs text-slate-400" x-text="'Sudah dijawab: ' + answeredCount + '/' + questions.length"></p>
@@ -461,7 +461,7 @@
       </template>
 
       <template x-if="questions.length && finished && !review">
-        <div class="rounded-2xl border border-slate-200/70 bg-white p-8 text-center shadow-sm">
+        <div class="rounded-2xl border border-slate-200/70 bg-white p-6 text-center shadow-sm sm:p-8">
           <div class="mx-auto flex max-w-md flex-col items-center text-center">
             <span class="flex h-20 w-20 items-center justify-center rounded-full text-3xl font-extrabold"
                   :class="percent >= 70 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-500'"
@@ -530,7 +530,7 @@
 
   <section x-show="active==='resources'" x-cloak x-transition.opacity.duration.150ms>
     <div x-data="resourcesPanel()" class="space-y-5">
-      <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
+      <div class="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="text-lg font-bold text-slate-900">Sumber Belajar Tambahan</h2>
@@ -552,7 +552,7 @@
       </div>
 
       <div class="grid gap-5 lg:grid-cols-2">
-        <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
+        <div class="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm sm:p-6">
           <h3 class="mb-4 flex items-center gap-2 text-base font-bold text-slate-900">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>
             Buku Rekomendasi
@@ -573,7 +573,7 @@
           {% endif %}
         </div>
 
-        <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
+        <div class="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm sm:p-6">
           <h3 class="mb-4 flex items-center gap-2 text-base font-bold text-slate-900">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2Z" /></svg>
             Artikel Rekomendasi
@@ -596,7 +596,7 @@
       </div>
 
       {% if resources.search_query %}
-        <div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
+        <div class="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm sm:p-6">
           <h3 class="flex items-center gap-2 text-base font-bold text-slate-900">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
             Query Pencarian Topik</h3>
@@ -609,7 +609,7 @@
 </div>
 
 <div id="chat-panel" data-document-id="{{ document.pk }}" x-data="chatPanel()" x-cloak>
-  <div x-show="open" x-cloak class="no-print fixed bottom-4 right-4 z-50 flex h-[32rem] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-teal-100/70 bg-white shadow-2xl">
+  <div x-show="open" x-cloak class="no-print fixed inset-x-4 bottom-24 z-50 flex h-[70dvh] max-h-[32rem] flex-col overflow-hidden rounded-2xl border border-teal-100/70 bg-white shadow-2xl sm:inset-x-auto sm:bottom-6 sm:right-4 sm:h-[32rem] sm:w-full sm:max-w-sm lg:bottom-4">
     <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
       <h3 class="text-sm font-bold text-slate-900">Tanya Materi (AI)</h3>
       <button type="button" @click="open=false" class="cursor-pointer rounded-lg px-2 py-1 text-slate-400 hover:text-slate-700" aria-label="Tutup chat">
@@ -631,7 +631,7 @@
     </form>
   </div>
   <button type="button" @click="open=true" x-show="!open"
-          class="no-print fixed bottom-4 right-4 z-50 flex cursor-pointer items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg transition-colors duration-200 hover:bg-primary-hover">
+          class="no-print fixed bottom-24 right-4 z-50 flex min-h-[48px] cursor-pointer items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg transition-colors duration-200 hover:bg-primary-hover lg:bottom-6">
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>
     Tanya AI
   </button>
@@ -648,8 +648,11 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/markmap-autoloader@0.18.12"></script>
 <style>
-  #mindmap-container { position: relative; width: 100%; height: 70vh; min-height: 400px; background: #fff; }
+  #mindmap-container { position: relative; width: 100%; height: 60vh; height: 60dvh; min-height: 320px; background: #fff; }
   #mindmap-container svg { width: 100%; height: 100%; display: block; }
+  @media (min-width: 640px) {
+    #mindmap-container { height: 70vh; min-height: 400px; }
+  }
 
   /* ==== Rangkuman: tipografi profesional ==== */
   .summary-prose {
@@ -657,6 +660,8 @@
     font-size: 0.975rem;
     line-height: 1.8;
     word-break: break-word;
+    overflow-wrap: anywhere;
+    min-width: 0;
   }
   .summary-prose > :first-child { margin-top: 0; }
   .summary-prose > :last-child { margin-bottom: 0; }
@@ -714,15 +719,21 @@
     background: #0f172a;
     color: #e2e8f0;
     overflow-x: auto;
+    max-width: 100%;
     font-size: 0.875rem;
     line-height: 1.7;
+    -webkit-overflow-scrolling: touch;
   }
   .summary-prose pre code { background: transparent; color: inherit; padding: 0; }
   .summary-prose table {
+    display: block;
+    max-width: 100%;
     width: 100%;
     margin: 1.2em 0;
     border-collapse: collapse;
     font-size: 0.9rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .summary-prose th,
   .summary-prose td {
