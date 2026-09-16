@@ -93,14 +93,16 @@
       </div>
     </div>
 
-    <nav class="no-print no-scrollbar -mx-4 mt-5 flex gap-1 overflow-x-auto border-b border-slate-200 px-4 sm:mx-0 sm:px-0" aria-label="Bagian materi">
+    <div class="no-print -mx-4 mt-5 sm:mx-0 relative" aria-label="Bagian materi">
+      <nav class="no-scrollbar flex gap-1 overflow-x-auto border-b border-slate-200 px-4 pb-2" style="mask-image: linear-gradient(to right, black 70%, transparent);">
       <button type="button" @click="active='summary'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='summary' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Rangkuman</button>
       <button type="button" @click="active='mindmap'; Ayok.renderMindmap()" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='mindmap' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Peta Pikiran</button>
       <button type="button" @click="active='roadmap'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='roadmap' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Peta Belajar</button>
       <button type="button" @click="active='flashcards'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='flashcards' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Kartu Belajar</button>
       <button type="button" @click="active='exam'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='exam' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Latihan Soal</button>
       <button type="button" @click="active='resources'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='resources' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Sumber Belajar</button>
-    </nav>
+      </nav>
+      </div>
   </section>
 
   <section x-show="active==='summary'" x-cloak x-transition.opacity.duration.150ms>

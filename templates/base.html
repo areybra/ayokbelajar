@@ -284,7 +284,7 @@
   {% block body %}
   <div class="min-h-screen">
     {% if user.is_authenticated %}
-    <div class="no-print sticky top-0 z-40 flex items-center justify-between border-b border-teal-100 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
+    <div class="no-print sticky top-0 z-40 flex items-center justify-between border-b border-teal-100 bg-white/90 px-4 py-3 backdrop-blur lg:hidden" x-data="{ sidebarOpen: false }">
       <a href="{% url 'core:dashboard' %}" class="flex items-center gap-2 text-lg font-bold text-slate-900">
         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5">
@@ -295,6 +295,12 @@
       </a>
       <div class="flex items-center gap-2">
         {% include '_theme_toggle.html' %}
+        <button type="button" @click="sidebarOpen = !sidebarOpen" :aria-expanded="sidebarOpen" aria-controls="mobile-sidebar" aria-label="Buka navigasi"
+                class="cursor-pointer rounded-lg p-2 text-slate-500 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-800">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-6 w-6" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+          </svg>
+        </button>
         <form method="post" action="{% url 'logout' %}">
           {% csrf_token %}
           <button type="submit"
@@ -302,7 +308,7 @@
         </form>
       </div>
     </div>
-    <aside class="no-print fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-teal-100 bg-white/95 backdrop-blur lg:flex">
+    <aside id="mobile-sidebar" class="no-print fixed inset-y-0 left-0 z-50 hidden w-64 flex-col border-r border-teal-100 bg-white/95 backdrop-blur lg:flex" :class="sidebarOpen ? 'flex' : 'hidden'" x-show="sidebarOpen" x-transition.duration.200ms @click.outside="sidebarOpen = false">
       <a href="{% url 'core:dashboard' %}" class="flex items-center gap-2.5 px-6 py-5 text-lg font-bold text-slate-900">
         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white shadow-sm" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5">
