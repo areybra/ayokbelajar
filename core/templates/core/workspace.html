@@ -93,16 +93,47 @@
       </div>
     </div>
 
-    <div class="no-print -mx-4 mt-5 sm:mx-0 relative" aria-label="Bagian materi">
-      <nav class="no-scrollbar flex gap-1 overflow-x-auto border-b border-slate-200 px-4 pb-2" style="mask-image: linear-gradient(to right, black 70%, transparent);">
-      <button type="button" @click="active='summary'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='summary' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Rangkuman</button>
-      <button type="button" @click="active='mindmap'; Ayok.renderMindmap()" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='mindmap' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Peta Pikiran</button>
-      <button type="button" @click="active='roadmap'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='roadmap' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Peta Belajar</button>
-      <button type="button" @click="active='flashcards'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='flashcards' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Kartu Belajar</button>
-      <button type="button" @click="active='exam'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='exam' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Latihan Soal</button>
-      <button type="button" @click="active='resources'" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='resources' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Sumber Belajar</button>
+    <div class="no-print mt-5 sm:mx-0" aria-label="Bagian materi">
+      <!-- Desktop: semua tab tampil inline -->
+      <nav class="hidden lg:flex gap-1 overflow-x-auto border-b border-slate-200 pb-2">
+        <button type="button" @click="goTo('summary')" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='summary' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Rangkuman</button>
+        <button type="button" @click="goTo('mindmap')" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='mindmap' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Peta Pikiran</button>
+        <button type="button" @click="goTo('roadmap')" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='roadmap' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Peta Belajar</button>
+        <button type="button" @click="goTo('flashcards')" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='flashcards' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Kartu Belajar</button>
+        <button type="button" @click="goTo('exam')" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='exam' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Latihan Soal</button>
+        <button type="button" @click="goTo('resources')" class="min-h-[44px] cursor-pointer whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200" :class="active==='resources' ? 'tab-active' : 'text-slate-500 hover:text-slate-800'">Sumber Belajar</button>
       </nav>
+      <!-- Mobile/Tablet: pagination 3 tab per halaman -->
+      <div class="lg:hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+        <div class="flex items-center gap-2">
+          <button type="button" @click="prevPage()" :disabled="page===0" aria-label="Halaman sebelumnya"
+                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors duration-200 hover:border-slate-300 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+          </button>
+          <div class="flex flex-1 gap-1.5">
+            <template x-for="tab in visibleTabs" :key="tab.id">
+              <button type="button" @click="goTo(tab.id)"
+                      class="min-h-[44px] flex-1 whitespace-nowrap rounded-xl px-2 py-2.5 text-sm font-medium transition-all duration-200"
+                      :class="active===tab.id ? 'bg-primary text-white shadow-sm' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800'">
+                <span x-text="tab.label"></span>
+              </button>
+            </template>
+          </div>
+          <button type="button" @click="nextPage()" :disabled="page===totalPages-1" aria-label="Halaman berikutnya"
+                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors duration-200 hover:border-slate-300 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5 15.75 12l-7.5 7.5" /></svg>
+          </button>
+        </div>
+        <div class="mt-2 flex items-center justify-center gap-2">
+          <template x-for="i in totalPages" :key="i">
+            <button type="button" @click="page=i-1" :aria-label="'Halaman ' + i" :aria-current="page===i-1 ? 'page' : null"
+                    class="h-1.5 rounded-full transition-all duration-200"
+                    :class="page===i-1 ? 'w-6 bg-primary' : 'w-4 bg-slate-200 hover:bg-slate-300'"></button>
+          </template>
+          <span class="ml-2 text-xs font-medium tabular-nums text-slate-400" x-text="'Hal ' + (page+1) + ' / ' + totalPages"></span>
+        </div>
       </div>
+    </div>
   </section>
 
   <section x-show="active==='summary'" x-cloak x-transition.opacity.duration.150ms>

@@ -259,7 +259,33 @@
   }
 
   window.tabs = function () {
-    return { active: 'summary' };
+    return {
+      active: 'summary',
+      page: 0,
+      perPage: 3,
+      tabs: [
+        { id: 'summary', label: 'Rangkuman' },
+        { id: 'mindmap', label: 'Peta Pikiran' },
+        { id: 'roadmap', label: 'Peta Belajar' },
+        { id: 'flashcards', label: 'Kartu Belajar' },
+        { id: 'exam', label: 'Latihan Soal' },
+        { id: 'resources', label: 'Sumber Belajar' },
+      ],
+      get totalPages() { return Math.ceil(this.tabs.length / this.perPage); },
+      get visibleTabs() { return this.tabs.slice(this.page * this.perPage, (this.page + 1) * this.perPage); },
+      nextPage: function () { if (this.page < this.totalPages - 1) this.page++; },
+      prevPage: function () { if (this.page > 0) this.page--; },
+      goTo: function (id) {
+        this.active = id;
+        var idx = this.tabs.findIndex(function (t) { return t.id === id; });
+        if (idx >= 0) this.page = Math.floor(idx / this.perPage);
+        if (id === 'mindmap' && window.Ayok && window.Ayok.renderMindmap) window.Ayok.renderMindmap();
+      },
+      ensureVisible: function (id) {
+        var idx = this.tabs.findIndex(function (t) { return t.id === id; });
+        if (idx >= 0) this.page = Math.floor(idx / this.perPage);
+      },
+    };
   };
 
   window.supplementLoader = function (docId) {
